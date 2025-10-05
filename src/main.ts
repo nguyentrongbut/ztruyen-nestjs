@@ -1,8 +1,23 @@
+// ** NestJs
 import { NestFactory } from '@nestjs/core';
+import { VersioningType } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+// ** Module
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  await app.listen(3000);
+  const configService = app.get(ConfigService);
+  const port = configService.get<string>('PORT');
+
+  // config versioning
+  app.setGlobalPrefix('api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: ['1'],
+  });
+  await app.listen(port);
 }
+
 bootstrap();
