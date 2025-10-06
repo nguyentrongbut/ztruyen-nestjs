@@ -30,6 +30,12 @@ export class UsersService {
       .populate({ path: 'role', select: { name: 1, permissions: 1 } });
   }
 
+  findUserByToken(refreshToken: string) {
+    return this.userModel.findOne({
+      refreshToken,
+    });
+  }
+
   isValidPassword(password: string, hash: string) {
     return compareSync(password, hash);
   }
