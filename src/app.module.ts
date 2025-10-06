@@ -3,6 +3,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 
+// ** Modules
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+
 // ** Controller
 import { AppController } from './app.controller';
 
@@ -28,6 +32,8 @@ import { softDeletePlugin } from 'soft-delete-plugin-mongoose';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
