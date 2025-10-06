@@ -15,6 +15,7 @@ import { AppService } from './app.service';
 
 // ** Soft Delete Plugin
 import { softDeletePlugin } from 'soft-delete-plugin-mongoose';
+import { UploadTelegramModule } from './upload-telegram/upload-telegram.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { softDeletePlugin } from 'soft-delete-plugin-mongoose';
     }),
     AuthModule,
     UsersModule,
+    UploadTelegramModule,
   ],
   controllers: [AppController],
   providers: [AppService],
