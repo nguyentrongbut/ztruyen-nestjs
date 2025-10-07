@@ -3,10 +3,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 
-// ** Modules
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-
 // ** Controller
 import { AppController } from './app.controller';
 
@@ -15,7 +11,12 @@ import { AppService } from './app.service';
 
 // ** Soft Delete Plugin
 import { softDeletePlugin } from 'soft-delete-plugin-mongoose';
+
+// ** Modules
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 import { UploadTelegramModule } from './upload-telegram/upload-telegram.module';
+import { ImagesModule } from './images/images.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { UploadTelegramModule } from './upload-telegram/upload-telegram.module';
     AuthModule,
     UsersModule,
     UploadTelegramModule,
+    ImagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

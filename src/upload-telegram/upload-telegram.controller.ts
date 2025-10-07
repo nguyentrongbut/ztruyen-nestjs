@@ -39,7 +39,7 @@ export class UploadTelegramController {
   )
   async uploadOne(
     @UploadedFile() file: Express.Multer.File,
-    @Body('caption') caption?: string,
+    @Body('caption') caption: string,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     return this.uploadTelegramService.sendPhotoByBuffer(
@@ -65,7 +65,7 @@ export class UploadTelegramController {
   )
   async uploadMany(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body('caption') caption?: string,
+    @Body('caption') caption: string,
   ) {
     if (!files || files.length === 0)
       throw new BadRequestException('No files uploaded');

@@ -14,8 +14,11 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop()
+  @Prop({ required: true })
   name: string;
+
+  @Prop({ required: true })
+  slug: string;
 
   @Prop()
   bio: string;

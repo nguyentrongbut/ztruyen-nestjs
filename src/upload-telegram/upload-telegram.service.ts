@@ -1,12 +1,22 @@
 // ** NestJs
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 // ** Axios
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
+
+// ** Stream
+import { Readable } from 'stream';
 
 // ** FormData
 import FormData from 'form-data';
+
+// ** Slugify
+import slugify from 'slugify';
 
 @Injectable()
 export class UploadTelegramService {
@@ -22,23 +32,43 @@ export class UploadTelegramService {
     return `https://api.telegram.org/bot${this.token}/${method}`;
   }
 
-  private fileUrl(filePath: string) {
-    return `https://api.telegram.org/file/bot${this.token}/${filePath}`;
+  async getFilePath(fileId: string): Promise<string> {
+    try {
+      const res = await axios.get(this.apiUrl(`getFile?file_id=${fileId}`));
+      if (!res.data.ok) {
+        throw new NotFoundException(`File not found on Telegram: ${fileId}`);
+      }
+      return res.data.result.file_path;
+    } catch (error) {
+      throw new NotFoundException(
+        `Error fetching file from Telegram: ${error}`,
+      );
+    }
   }
 
-  private async getFileUrl(fileId: string): Promise<string> {
-    const res = await axios.get(this.apiUrl(`getFile?file_id=${fileId}`));
-    if (!res.data.ok) {
-      throw new Error(`getFile failed: ${JSON.stringify(res.data)}`);
+  async getFileStream(fileId: string): Promise<Readable> {
+    const filePath = await this.getFilePath(fileId);
+    const url = `https://api.telegram.org/file/bot${this.token}/${filePath}`;
+
+    try {
+      const response: AxiosResponse<Readable> = await axios.get(url, {
+        responseType: 'stream',
+      });
+      return response.data;
+    } catch (error) {
+      throw new NotFoundException(
+        `Error streaming file from Telegram: ${error}`,
+      );
     }
-    return this.fileUrl(res.data.result.file_path);
   }
 
   async sendPhotoByBuffer(
     fileBuffer: Buffer,
     filename = 'image.jpg',
-    caption?: string,
+    caption: string,
   ) {
+    if (!caption) throw new BadRequestException('Caption is required');
+
     const form = new FormData();
     form.append('chat_id', this.chatId);
     form.append('photo', fileBuffer, { filename });
@@ -53,11 +83,13 @@ export class UploadTelegramService {
     if (!res.data.ok) throw new Error('Upload failed');
 
     const fileId = res.data.result.photo.pop().file_id;
-    const url = await this.getFileUrl(fileId);
-    return { url };
+    const slug = slugify(caption, { lower: true });
+
+    return { fileId, slug };
   }
 
-  async sendPhotosByBuffers(files: Express.Multer.File[], caption?: string) {
+  async sendPhotosByBuffers(files: Express.Multer.File[], caption: string) {
+    if (!caption) throw new BadRequestException('Caption is required');
     const form = new FormData();
     const media: any[] = [];
 
@@ -80,14 +112,11 @@ export class UploadTelegramService {
     });
 
     if (!res.data.ok) throw new Error('Upload failed');
+    const fields = res.data.result.map((msg, i) => ({
+      fileId: msg.photo.pop().file_id,
+      slug: slugify(`${caption}-${i + 1}`, { lower: true }),
+    }));
 
-    const urls = await Promise.all(
-      res.data.result.map(async (msg) => {
-        const fileId = msg.photo.pop().file_id;
-        return this.getFileUrl(fileId);
-      }),
-    );
-
-    return { urls };
+    return { fields };
   }
 }
