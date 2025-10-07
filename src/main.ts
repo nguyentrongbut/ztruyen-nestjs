@@ -17,9 +17,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
+
+  // Global guard & Interceptor
   app.useGlobalGuards(new JwtAuthGuard(reflector));
   app.useGlobalInterceptors(new TransformInterceptor(reflector));
-  const port = configService.get<string>('PORT');
+
+  // Global validation
   app.useGlobalPipes(new ValidationPipe());
 
   // config cookies
@@ -40,6 +43,9 @@ async function bootstrap() {
     type: VersioningType.URI,
     defaultVersion: ['1'],
   });
+
+  // Listen
+  const port = configService.get<string>('PORT');
   await app.listen(port);
 }
 

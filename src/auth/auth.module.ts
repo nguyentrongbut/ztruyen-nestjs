@@ -19,6 +19,7 @@ import { JwtStrategy } from './passport/jwt.strategy';
 
 // ** ms
 import ms from 'ms';
+import { EmailService } from '../email/email.service';
 
 @Module({
   imports: [
@@ -37,6 +38,6 @@ import ms from 'ms';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, LocalStrategy, JwtStrategy, EmailService],
 })
 export class AuthModule {}

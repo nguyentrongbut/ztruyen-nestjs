@@ -17,7 +17,7 @@ export class User {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop()
   slug: string;
 
   @Prop()
@@ -34,6 +34,12 @@ export class User {
 
   @Prop()
   role: string;
+
+  @Prop()
+  resetToken?: string;
+
+  @Prop()
+  resetTokenExpiry?: Date;
 
   @Prop()
   refreshToken: string;

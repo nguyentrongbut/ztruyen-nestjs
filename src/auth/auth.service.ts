@@ -15,11 +15,16 @@ import ms from 'ms';
 
 // ** DTO
 import { RegisterUserDto } from '../users/dto/create-user.dto';
+import { EmailService } from '../email/email.service';
+
+// ** Utils
+import { formatExpireTime } from '../utils/timeFormatter';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
+    private readonly emailService: EmailService,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -71,8 +76,33 @@ export class AuthService {
     return 'ok';
   }
 
-  async validateUser(username: string, pass: string): Promise<any> {
-    const user = await this.usersService.findOneByUsername(username);
+  async forgotPassword(email: string) {
+    const token = await this.usersService.setResetToken(email);
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    const user = await this.usersService.findOneByEmail(email);
+    const expireTime = formatExpireTime(
+      this.configService.get<string>('EMAIL_RESET_PASSWORD_EXPIRE'),
+    );
+
+    await this.emailService.sendResetPasswordEmail(
+      user.email,
+      user.name,
+      resetLink,
+      expireTime,
+    );
+
+    return 'ok';
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.usersService.verifyResetToken(token);
+    await this.usersService.updatePassword(user._id.toString(), newPassword);
+    return 'ok';
+  }
+
+  async validateUser(email: string, pass: string): Promise<any> {
+    const user = await this.usersService.findOneByEmail(email);
     if (user) {
       const isValid = this.usersService.isValidPassword(pass, user.password);
       if (isValid === true) return user;

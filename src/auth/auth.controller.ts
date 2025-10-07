@@ -68,4 +68,18 @@ export class AuthController {
   ) {
     return this.authService.logout(response, user);
   }
+
+  @Public()
+  @Post('forgot-password')
+  @ResponseMessage('Please check your email to reset your password')
+  forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @ResponseMessage('Password reset successfully')
+  resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.newPassword);
+  }
 }

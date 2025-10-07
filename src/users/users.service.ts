@@ -1,6 +1,7 @@
 // ** NestJs
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 
 // ** DTO
 import { CreateUserDto, RegisterUserDto } from './dto/create-user.dto';
@@ -15,17 +16,29 @@ import { SoftDeleteModel } from 'soft-delete-plugin-mongoose';
 // ** Bcryptjs
 import { compareSync, genSaltSync, hashSync } from 'bcryptjs';
 
+// ** Crypto
+import { randomBytes } from 'crypto';
+
+import ms from 'ms';
+
 @Injectable()
 export class UsersService {
+  private readonly emailExpire: string;
+
   constructor(
     @InjectModel(User.name) private userModel: SoftDeleteModel<UserDocument>,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.emailExpire = this.configService.get<string>(
+      'EMAIL_RESET_PASSWORD_EXPIRE',
+    );
+  }
 
   // Auth
-  findOneByUsername(username: string) {
+  findOneByEmail(email: string) {
     return this.userModel
       .findOne({
-        email: username,
+        email,
       })
       .populate({ path: 'role', select: { name: 1, permissions: 1 } });
   }
@@ -73,6 +86,39 @@ export class UsersService {
     const hash = hashSync(password, salt);
     return hash;
   };
+
+  // forgot password
+  async setResetToken(email: string) {
+    const user = await this.findOneByEmail(email);
+    if (!user) throw new BadRequestException('User not found');
+
+    const token = randomBytes(32).toString('hex');
+    const expiry = new Date(
+      Date.now() +
+        ms(this.configService.get<string>('EMAIL_RESET_PASSWORD_EXPIRE')),
+    );
+    user.resetToken = token;
+    user.resetTokenExpiry = expiry;
+    await user.save();
+    return token;
+  }
+
+  async verifyResetToken(token: string) {
+    const user = await this.userModel.findOne({ resetToken: token });
+    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+    return user;
+  }
+
+  async updatePassword(userId: string, password: string) {
+    const hashed = this.getHashPassword(password);
+    return this.userModel.findByIdAndUpdate(userId, {
+      password: hashed,
+      resetToken: null,
+      resetTokenExpiry: null,
+    });
+  }
 
   // End Auth
   create(createUserDto: CreateUserDto) {

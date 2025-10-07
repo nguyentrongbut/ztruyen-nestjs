@@ -9,6 +9,6 @@ import { UploadTelegramController } from './upload-telegram.controller';
 
 @Module({
   controllers: [UploadTelegramController],
-  providers: [UploadTelegramService]
+  providers: [UploadTelegramService],
 })
 export class UploadTelegramModule {}
