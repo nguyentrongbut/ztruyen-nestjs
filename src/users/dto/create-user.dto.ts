@@ -13,6 +13,9 @@ export class CreateUserDto {
   password: string;
 
   @IsNotEmpty()
+  avatar: string;
+
+  @IsNotEmpty()
   age: number;
 
   @IsNotEmpty()
@@ -39,4 +42,19 @@ export class RegisterUserDto {
 
   @IsNotEmpty()
   gender: string;
+}
+
+export class CreateUserSocialDto {
+  @IsNotEmpty()
+  name: string;
+
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsNotEmpty()
+  avatar: string;
+
+  @IsNotEmpty()
+  provider: string;
 }

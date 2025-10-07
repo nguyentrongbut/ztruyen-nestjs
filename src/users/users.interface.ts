@@ -5,3 +5,9 @@ export interface IUser {
   role: string;
   createdAt?: Date;
 }
+
+export interface IUserByGoogle {
+  email: string;
+  name: string;
+  avatar: string;
+}

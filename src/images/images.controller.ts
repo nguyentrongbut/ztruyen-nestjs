@@ -1,8 +1,15 @@
 // ** NestJs
-import { Controller, Get, Param, Res } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Req,
+  Res,
+} from '@nestjs/common';
 
 // ** Express
-import { Response } from 'express';
+import { Response, Request } from 'express';
 
 // ** Services
 import { ImagesService } from './images.service';
@@ -16,7 +23,22 @@ export class ImagesController {
 
   @Public()
   @Get('/:type/:slug')
-  findImage(@Param('slug') slug: string, @Res() res: Response) {
+  findImage(
+    @Param('slug') slug: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    const referer = req.get('referer');
+    const allowedOrigins = ['http://localhost:3000'];
+
+    // Check referer
+    if (
+      !referer ||
+      !allowedOrigins.some((origin) => referer.startsWith(origin))
+    ) {
+      throw new ForbiddenException('Access to image is forbidden');
+    }
+
     return this.imagesService.findImage(slug, res);
   }
 }

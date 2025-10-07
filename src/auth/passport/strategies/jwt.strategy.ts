@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 // ** Interfaces
-import { IUser } from '../../users/users.interface';
+import { IUser } from '../../../users/users.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {

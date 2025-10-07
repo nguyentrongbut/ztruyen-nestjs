@@ -8,14 +8,16 @@ import { Response } from 'express';
 
 // ** Services
 import { UsersService } from '../users/users.service';
-import { IUser } from '../users/users.interface';
+import { EmailService } from '../email/email.service';
+
+// ** Interface
+import { IUser, IUserByGoogle } from '../users/users.interface';
 
 // ** ms
 import ms from 'ms';
 
 // ** DTO
 import { RegisterUserDto } from '../users/dto/create-user.dto';
-import { EmailService } from '../email/email.service';
 
 // ** Utils
 import { formatExpireTime } from '../utils/timeFormatter';
@@ -60,6 +62,53 @@ export class AuthService {
         role,
       },
     };
+  }
+
+  async googleLogin(userByGoogle: IUserByGoogle, response: Response) {
+    if (!userByGoogle) throw new BadRequestException('Google login failed');
+
+    const { email, name, avatar } = userByGoogle;
+
+    let user = await this.usersService.findOneByEmail(email);
+    if (!user) {
+      user = await this.usersService.createUserSocial({
+        email,
+        name,
+        avatar,
+        provider: 'google',
+      });
+    }
+
+    const { _id, role } = user;
+
+    const payload = {
+      sub: 'token login google',
+      iss: 'from server',
+      _id,
+      name,
+      email,
+      role,
+    };
+
+    const refresh_token = await this.createRefreshToken(payload);
+
+    // update refresh token in db
+    await this.usersService.updateUserToken(refresh_token, _id.toString());
+
+    // set refresh token in httpOnly cookie
+    response.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
+    });
+
+    const access_token = this.jwtService.sign(payload);
+
+    // redirect to frontend with access token
+    return response.redirect(
+      `${this.configService.get(
+        'FRONTEND_URL',
+      )}/auth/success?token=${access_token}`,
+    );
   }
 
   async register(user: RegisterUserDto) {

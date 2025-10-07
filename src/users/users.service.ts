@@ -4,7 +4,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 
 // ** DTO
-import { CreateUserDto, RegisterUserDto } from './dto/create-user.dto';
+import {
+  CreateUserDto,
+  CreateUserSocialDto,
+  RegisterUserDto,
+} from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 // ** Schemas
@@ -19,6 +23,7 @@ import { compareSync, genSaltSync, hashSync } from 'bcryptjs';
 // ** Crypto
 import { randomBytes } from 'crypto';
 
+// ** ms
 import ms from 'ms';
 
 @Injectable()
@@ -75,7 +80,6 @@ export class UsersService {
       password: hashPassword,
       age,
       gender,
-      role: 'USER',
     });
 
     return newRegister;
@@ -118,6 +122,14 @@ export class UsersService {
       resetToken: null,
       resetTokenExpiry: null,
     });
+  }
+
+  async createUserSocial(createUserSocialDto: CreateUserSocialDto) {
+    const newSocial = await this.userModel.create({
+      ...createUserSocialDto,
+    });
+
+    return newSocial;
   }
 
   // End Auth

@@ -14,8 +14,9 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 
 // ** Passport
-import { LocalStrategy } from './passport/local.strategy';
-import { JwtStrategy } from './passport/jwt.strategy';
+import { LocalStrategy } from './passport/strategies/local.strategy';
+import { JwtStrategy } from './passport/strategies/jwt.strategy';
+import { GoogleStrategy } from './passport/strategies/google.strategy';
 
 // ** ms
 import ms from 'ms';
@@ -38,6 +39,12 @@ import { EmailService } from '../email/email.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, EmailService],
+  providers: [
+    AuthService,
+    LocalStrategy,
+    JwtStrategy,
+    EmailService,
+    GoogleStrategy,
+  ],
 })
 export class AuthModule {}

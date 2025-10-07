@@ -22,7 +22,8 @@ import { RegisterUserDto } from '../users/dto/create-user.dto';
 import { Public, ResponseMessage, User } from '../decorator/customize';
 
 // ** Guards
-import { LocalAuthGuard } from './local-auth.guard';
+import { LocalAuthGuard } from './passport/guards/local-auth.guard';
+import { GoogleAuthGuard } from './passport/guards/google-auth.guard';
 
 // ** Interface
 import { IUser } from '../users/users.interface';
@@ -40,6 +41,21 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     return this.authService.login(req.user, response);
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  @ResponseMessage('Google authentication successful')
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  async googleAuth() {}
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  @ResponseMessage('Google login successful')
+  async googleAuthRedirect(@Req() req, @Res() response: Response) {
+    return this.authService.googleLogin(req.user, response);
   }
 
   @Public()

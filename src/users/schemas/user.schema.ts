@@ -11,7 +11,7 @@ export class User {
   @Prop({ required: true })
   email: string;
 
-  @Prop({ required: true })
+  @Prop({ required: false, default: null })
   password: string;
 
   @Prop({ required: true })
@@ -32,8 +32,11 @@ export class User {
   @Prop()
   gender: string;
 
-  @Prop()
+  @Prop({ default: 'user' })
   role: string;
+
+  @Prop({ default: 'local' })
+  provider: string;
 
   @Prop()
   resetToken?: string;
