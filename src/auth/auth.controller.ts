@@ -24,6 +24,7 @@ import { Public, ResponseMessage, User } from '../decorator/customize';
 // ** Guards
 import { LocalAuthGuard } from './passport/guards/local-auth.guard';
 import { GoogleAuthGuard } from './passport/guards/google-auth.guard';
+import { FacebookAuthGuard } from './passport/guards/facebook-auth.guard';
 
 // ** Interface
 import { IUser } from '../users/users.interface';
@@ -46,16 +47,27 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(GoogleAuthGuard)
-  @ResponseMessage('Google authentication successful')
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   async googleAuth() {}
 
   @Public()
+  @Get('facebook')
+  @UseGuards(FacebookAuthGuard)
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  async login() {}
+
+  @Public()
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  @ResponseMessage('Google login successful')
   async googleAuthRedirect(@Req() req, @Res() response: Response) {
-    return this.authService.googleLogin(req.user, response);
+    return this.authService.socialLogin(req.user, response, 'google');
+  }
+
+  @Public()
+  @Get('facebook/callback')
+  @UseGuards(FacebookAuthGuard)
+  async facebookCallback(@Req() req, @Res() res: Response) {
+    return this.authService.socialLogin(req.user, res, 'facebook');
   }
 
   @Public()

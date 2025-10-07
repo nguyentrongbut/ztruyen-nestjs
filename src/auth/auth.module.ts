@@ -9,6 +9,7 @@ import { UsersModule } from '../users/users.module';
 
 // ** Services
 import { AuthService } from './auth.service';
+import { EmailService } from '../email/email.service';
 
 // ** Controllers
 import { AuthController } from './auth.controller';
@@ -17,10 +18,10 @@ import { AuthController } from './auth.controller';
 import { LocalStrategy } from './passport/strategies/local.strategy';
 import { JwtStrategy } from './passport/strategies/jwt.strategy';
 import { GoogleStrategy } from './passport/strategies/google.strategy';
+import { FacebookStrategy } from './passport/strategies/facebook.strategy';
 
 // ** ms
 import ms from 'ms';
-import { EmailService } from '../email/email.service';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { EmailService } from '../email/email.service';
     JwtStrategy,
     EmailService,
     GoogleStrategy,
+    FacebookStrategy,
   ],
 })
 export class AuthModule {}

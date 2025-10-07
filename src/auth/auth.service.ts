@@ -11,7 +11,11 @@ import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
 
 // ** Interface
-import { IUser, IUserByGoogle } from '../users/users.interface';
+import {
+  IUser,
+  IUserByFacebook,
+  IUserByGoogle,
+} from '../users/users.interface';
 
 // ** ms
 import ms from 'ms';
@@ -64,10 +68,14 @@ export class AuthService {
     };
   }
 
-  async googleLogin(userByGoogle: IUserByGoogle, response: Response) {
-    if (!userByGoogle) throw new BadRequestException('Google login failed');
+  async socialLogin(
+    userSocial: IUserByGoogle | IUserByFacebook,
+    response: Response,
+    provider: 'google' | 'facebook',
+  ) {
+    if (!userSocial) throw new BadRequestException(`${provider} login failed`);
 
-    const { email, name, avatar } = userByGoogle;
+    const { email, name, avatar } = userSocial;
 
     let user = await this.usersService.findOneByEmail(email);
     if (!user) {
@@ -75,14 +83,14 @@ export class AuthService {
         email,
         name,
         avatar,
-        provider: 'google',
+        provider,
       });
     }
 
     const { _id, role } = user;
 
     const payload = {
-      sub: 'token login google',
+      sub: `token login ${provider}`,
       iss: 'from server',
       _id,
       name,
@@ -90,12 +98,15 @@ export class AuthService {
       role,
     };
 
-    const refresh_token = await this.createRefreshToken(payload);
+    const refresh_token = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_TOKEN'),
+      expiresIn:
+        ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')) / 1000,
+    });
 
-    // update refresh token in db
     await this.usersService.updateUserToken(refresh_token, _id.toString());
 
-    // set refresh token in httpOnly cookie
+    // Set refresh token in httpOnly cookie
     response.cookie('refresh_token', refresh_token, {
       httpOnly: true,
       maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
@@ -103,11 +114,9 @@ export class AuthService {
 
     const access_token = this.jwtService.sign(payload);
 
-    // redirect to frontend with access token
+    // Redirect to frontend with access token
     return response.redirect(
-      `${this.configService.get(
-        'FRONTEND_URL',
-      )}/auth/success?token=${access_token}`,
+      `${this.configService.get('LOGIN_SOCIAL_RETURN_URL')}${access_token}`,
     );
   }
 
