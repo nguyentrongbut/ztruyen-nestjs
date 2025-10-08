@@ -38,19 +38,25 @@ export class UsersController {
     return this.usersService.findAll(+page, +limit, qs);
   }
 
-  @Get(':id')
+  @Get('detail/:id')
   @ResponseMessage('Get detail user successfully')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
 
-  @Post('profile')
+  @Get('profile')
   @ResponseMessage('Get profile successfully')
-  getProfile(@User() user: IUser) {
-    return this.usersService.getProfile(user);
+  findProfile(@User() user: IUser) {
+    return this.usersService.findProfile(user);
   }
 
-  @Patch(':id')
+  @Patch('profile')
+  @ResponseMessage('Update profile successfully')
+  updateProfile(@Body() updateUserDto: UpdateUserDto, @User() user: IUser) {
+    return this.usersService.updateProfile(updateUserDto, user);
+  }
+
+  @Patch('update/:id')
   @ResponseMessage('Cập nhật người dùng thành công.')
   update(
     @Param('id') id: string,
@@ -60,15 +66,55 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto, user);
   }
 
-  @Delete(':id')
+  @Delete('delete/:id')
   @ResponseMessage('Xoá người dùng thành công!')
   remove(@Param('id') id: string, @User() user: IUser) {
     return this.usersService.remove(id, user);
   }
 
-  @Post('delete-multi')
+  @Delete('delete-multi')
   @ResponseMessage('Xoá nhiều người dùng thành công!')
   removeMulti(@Body('ids') ids: string[], @User() user: IUser) {
     return this.usersService.removeMulti(ids, user);
+  }
+
+  @Get('trash')
+  @ResponseMessage('Get list trash successfully')
+  findDeleted(
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query() qs: string,
+  ) {
+    return this.usersService.findDeleted(+page, +limit, qs);
+  }
+
+  @Get('trash/:id')
+  @ResponseMessage('Get detail trash successfully')
+  findOneDeleted(@Param('id') id: string) {
+    return this.usersService.findOneDeleted(id);
+  }
+
+  @Delete('trash/delete/:id')
+  @ResponseMessage('Delete user successfully')
+  hardRemove(@Param('id') id: string) {
+    return this.usersService.hardRemove(id);
+  }
+
+  @Delete('trash/delete-multi')
+  @ResponseMessage('Delete multi user successfully')
+  hardRemoveMulti(@Body('ids') ids: string[]) {
+    return this.usersService.hardRemoveMulti(ids);
+  }
+
+  @Patch('restore/:id')
+  @ResponseMessage('Restore user successfully')
+  restore(@Param('id') id: string) {
+    return this.usersService.restore(id);
+  }
+
+  @Patch('restore-multi')
+  @ResponseMessage('Restore user successfully')
+  restoreMulti(@Body('ids') ids: string[]) {
+    return this.usersService.restoreMulti(ids);
   }
 }

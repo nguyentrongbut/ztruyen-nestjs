@@ -203,7 +203,7 @@ export class AuthService {
       await this.usersService.updateUserToken(refresh_token, _id.toString());
 
       // clear old refresh token in cookie
-      response.clearCookie('refresh_token');
+      response.clearCookie('ZTC_token');
 
       // set refresh token in httpOnly cookie
       response.cookie('ZTC_token', refresh_token, {
