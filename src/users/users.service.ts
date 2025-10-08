@@ -1,7 +1,14 @@
 // ** NestJs
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
+
+// ** Api Query Params
+import aqp from 'api-query-params';
 
 // ** DTO
 import {
@@ -25,6 +32,10 @@ import { randomBytes } from 'crypto';
 
 // ** ms
 import ms from 'ms';
+
+// ** Mongoose
+import mongoose from 'mongoose';
+import { IUser } from './users.interface';
 
 @Injectable()
 export class UsersService {
@@ -52,6 +63,18 @@ export class UsersService {
     return this.userModel.findOne({
       refreshToken,
     });
+  }
+
+  async getProfile(user: IUser) {
+    const alreadyDeleted = await this.isDeleted(user._id);
+
+    if (alreadyDeleted) {
+      throw new BadRequestException('User already deleted');
+    }
+
+    return this.userModel
+      .findOne({ _id: user._id })
+      .select('-password -deletedBy -refreshToken -isDeleted -deletedAt');
   }
 
   isValidPassword(password: string, hash: string) {
@@ -133,23 +156,186 @@ export class UsersService {
   }
 
   // End Auth
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+
+  // Check soft delete
+  async isDeleted(_id: string): Promise<boolean> {
+    const deletedUser = await this.userModel
+      .findOne({
+        _id,
+        isDeleted: true,
+      })
+      .select('_id');
+
+    return !!deletedUser;
   }
 
-  findAll() {
-    return `This action returns all users`;
+  // End Check soft delete
+
+  // CRUD
+  async create(createUserDto: CreateUserDto, user: IUser) {
+    const { email, password } = createUserDto;
+
+    const isExist = await this.userModel.findOne({ email });
+    if (isExist) {
+      throw new BadRequestException('User with email already exists');
+    }
+
+    const hashPassword = this.getHashPassword(password);
+
+    const newUser = await this.userModel.create({
+      ...createUserDto,
+      password: hashPassword,
+      createdBy: {
+        _id: user._id,
+        email: user.email,
+      },
+    });
+
+    return {
+      _id: newUser?._id,
+      createdAt: newUser?.createdAt,
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findAll(page: number, limit: number, qs: string) {
+    const { filter, sort, population } = aqp(qs);
+    delete filter.page;
+    delete filter.limit;
+
+    const offset = (+page - 1) * +limit;
+    const defaultLimit = +limit ? +limit : 10;
+
+    const totalItems = (await this.userModel.find(filter)).length;
+    const totalPages = Math.ceil(totalItems / defaultLimit);
+
+    const result = await this.userModel
+      .find(filter)
+      .skip(offset)
+      .limit(defaultLimit)
+      .sort(sort as any)
+      .populate(population)
+      .select('-password -refreshToken -isDeleted')
+      .exec();
+
+    return {
+      meta: {
+        page,
+        limit,
+        totalPages,
+        totalItems,
+      },
+      result,
+    };
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async findOne(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id))
+      throw new NotFoundException('Not found User!');
+
+    const alreadyDeleted = await this.isDeleted(id);
+
+    if (alreadyDeleted) {
+      throw new BadRequestException('User already deleted');
+    }
+
+    return this.userModel
+      .findOne({
+        _id: id,
+      })
+      .select('-password -refreshToken -isDeleted');
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async update(id: string, updateUserDto: UpdateUserDto, user: IUser) {
+    if (!mongoose.Types.ObjectId.isValid(id))
+      throw new NotFoundException('Not found User!');
+
+    const alreadyDeleted = await this.isDeleted(id);
+
+    if (alreadyDeleted) {
+      throw new BadRequestException('User already deleted');
+    }
+
+    const updated = await this.userModel.updateOne(
+      {
+        _id: id,
+      },
+      {
+        ...updateUserDto,
+        updatedBy: {
+          _id: user._id,
+          email: user.email,
+        },
+      },
+    );
+
+    return updated;
   }
+
+  async remove(id: string, user: IUser) {
+    if (!mongoose.Types.ObjectId.isValid(id))
+      throw new NotFoundException('Invalid User ID!');
+
+    // Check soft deleted ?
+    const alreadyDeleted = await this.isDeleted(id);
+
+    if (alreadyDeleted) {
+      throw new BadRequestException('User already deleted');
+    }
+
+    await this.userModel.updateOne(
+      { _id: id },
+      {
+        deletedBy: { _id: user._id, email: user.email },
+      },
+    );
+
+    return this.userModel.softDelete({ _id: id });
+  }
+
+  async removeMulti(ids: string[], user: IUser) {
+    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+
+    if (!ids || ids.length === 0) {
+      throw new BadRequestException('No user IDs provided');
+    }
+
+    const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        `Invalid user IDs: ${invalidIds.join(', ')}`,
+      );
+    }
+
+    // Check soft deleted ?
+    const alreadyDeletedUsers = await this.userModel
+      .find({
+        _id: { $in: objectIds },
+        isDeleted: true,
+      })
+      .select('_id');
+
+    const alreadyDeletedIds = alreadyDeletedUsers.map((u) => u._id.toString());
+
+    if (alreadyDeletedIds.length > 0) {
+      throw new BadRequestException(
+        `Users already deleted: ${alreadyDeletedIds.join(', ')}`,
+      );
+    }
+
+    await this.userModel.updateMany(
+      { _id: { $in: ids } },
+      {
+        $set: {
+          deletedBy: {
+            _id: user._id,
+            email: user.email,
+          },
+        },
+      },
+    );
+
+    return this.userModel.softDelete({ _id: { $in: ids } });
+  }
+
+  // End CRUD
 }

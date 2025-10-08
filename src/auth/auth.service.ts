@@ -52,7 +52,7 @@ export class AuthService {
     await this.usersService.updateUserToken(refresh_token, _id);
 
     // set refresh token in httpOnly cookie
-    response.cookie('refresh_token', refresh_token, {
+    response.cookie('ZTC_token', refresh_token, {
       httpOnly: true,
       maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
     });
@@ -107,7 +107,7 @@ export class AuthService {
     await this.usersService.updateUserToken(refresh_token, _id.toString());
 
     // Set refresh token in httpOnly cookie
-    response.cookie('refresh_token', refresh_token, {
+    response.cookie('ZTC_token', refresh_token, {
       httpOnly: true,
       maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
     });
@@ -130,7 +130,7 @@ export class AuthService {
 
   async logout(response: Response, user: IUser) {
     await this.usersService.updateUserToken('', user._id);
-    response.clearCookie('refresh_token');
+    response.clearCookie('ZTC_token');
     return 'ok';
   }
 
@@ -206,7 +206,7 @@ export class AuthService {
       response.clearCookie('refresh_token');
 
       // set refresh token in httpOnly cookie
-      response.cookie('refresh_token', refresh_token, {
+      response.cookie('ZTC_token', refresh_token, {
         httpOnly: true,
         maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
       });

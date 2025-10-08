@@ -1,5 +1,12 @@
 // ** Class Validator
-import { IsEmail, IsMongoId, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+} from 'class-validator';
+import { Optional } from '@nestjs/common';
 
 export class CreateUserDto {
   @IsNotEmpty()
@@ -10,12 +17,15 @@ export class CreateUserDto {
   email: string;
 
   @IsNotEmpty()
+  @IsString()
   password: string;
 
   @IsNotEmpty()
+  @IsString()
   avatar: string;
 
   @IsNotEmpty()
+  @IsNumber()
   age: number;
 
   @IsNotEmpty()
@@ -23,7 +33,14 @@ export class CreateUserDto {
   role: string;
 
   @IsNotEmpty()
+  @IsString()
   gender: string;
+
+  @Optional()
+  bio?: string;
+
+  @Optional()
+  birthday?: Date;
 }
 
 export class RegisterUserDto {
