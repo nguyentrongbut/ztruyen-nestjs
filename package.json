@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build && npm run copy:templates",
-    "copy:templates": "copyfiles -u 1 src/email/templates/**/* dist/email/templates",
+    "copy:templates": "copyfiles -u 2 \"src/email/templates/**/*\" dist/email",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -70,6 +70,7 @@
     "@types/supertest": "2.0.11",
     "@typescript-eslint/eslint-plugin": "5.0.0",
     "@typescript-eslint/parser": "5.0.0",
+    "copyfiles": "^2.4.1",
     "eslint": "8.0.1",
     "eslint-config-prettier": "8.3.0",
     "eslint-plugin-prettier": "4.0.0",
