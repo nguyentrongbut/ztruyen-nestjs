@@ -13,6 +13,9 @@ export class Image {
 
   @Prop({ required: true })
   fileId: string;
+
+  @Prop()
+  createdAt: Date;
 }
 
 export const ImageSchema = SchemaFactory.createForClass(Image);
