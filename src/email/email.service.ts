@@ -1,10 +1,23 @@
-// ** NestJs
 import { Injectable } from '@nestjs/common';
-import { MailerService } from '@nestjs-modules/mailer';
+import { ConfigService } from '@nestjs/config';
+import sgMail from '@sendgrid/mail';
+import pug from 'pug';
+import { join } from 'path';
 
 @Injectable()
 export class EmailService {
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(private configService: ConfigService) {
+    sgMail.setApiKey(this.configService.get<string>('SENDGRID_API_KEY'));
+  }
+
+  private renderTemplate(templateName: string, context: any) {
+    const templatePath = join(
+      process.cwd(),
+      'src/email/templates',
+      `${templateName}.pug`,
+    );
+    return pug.renderFile(templatePath, context);
+  }
 
   async sendResetPasswordEmail(
     to: string,
@@ -12,19 +25,17 @@ export class EmailService {
     resetLink: string,
     expireTime: string,
   ) {
-    await this.mailerService.sendMail({
+    const html = this.renderTemplate('reset-password', {
+      name: username,
+      resetLink,
+      expireTime,
+    });
+
+    await sgMail.send({
       to,
-      from: {
-        name: 'ZTruyen',
-        address: 'noreply@ztruyen.io.vn',
-      },
+      from: this.configService.get<string>('SENDGRID_FROM_EMAIL'),
       subject: '🔐 Yêu cầu đặt lại mật khẩu - ZTruyen',
-      template: 'reset-password',
-      context: {
-        name: username,
-        resetLink,
-        expireTime,
-      },
+      html,
     });
   }
 }

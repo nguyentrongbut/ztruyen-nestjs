@@ -29,6 +29,7 @@
     "@nestjs/mongoose": "9.2.2",
     "@nestjs/passport": "9.0.3",
     "@nestjs/platform-express": "9.4.0",
+    "@sendgrid/mail": "^8.1.6",
     "@types/passport-facebook": "^3.0.3",
     "api-query-params": "5.4.0",
     "axios": "^1.12.2",
