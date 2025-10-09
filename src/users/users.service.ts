@@ -178,16 +178,17 @@ export class UsersService {
 
   // Check soft delete
   async isDeleted(_id: string): Promise<boolean> {
-    if (!mongoose.Types.ObjectId.isValid(_id))
-      throw new NotFoundException('Not found User!');
-    const deletedUser = await this.userModel
-      .findOne({
-        _id,
-        isDeleted: true,
-      })
-      .select('_id');
+    if (!mongoose.Types.ObjectId.isValid(_id)) {
+      throw new NotFoundException('Invalid user ID!');
+    }
 
-    return !!deletedUser;
+    const user = await this.userModel.findById(_id).select('isDeleted').lean();
+
+    if (!user) {
+      throw new NotFoundException('User not found!');
+    }
+
+    return !!user.isDeleted;
   }
 
   // End Check soft delete
@@ -279,10 +280,6 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    if (!mongoose.Types.ObjectId.isValid(id))
-      throw new NotFoundException('Invalid User ID!');
-
-    // Check soft deleted ?
     const alreadyDeleted = await this.isDeleted(id);
 
     if (alreadyDeleted) {
@@ -368,11 +365,6 @@ export class UsersService {
   async hardRemove(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Invalid User ID!');
-    }
-
-    const alreadyDeleted = await this.isDeleted(id);
-    if (!alreadyDeleted) {
-      throw new BadRequestException("Don't have id");
     }
 
     return this.userModel.deleteOne({ _id: id });

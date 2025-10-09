@@ -1,5 +1,9 @@
 // ** NestJs
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
@@ -37,6 +41,13 @@ export class AuthService {
 
   async login(user: IUser, response: Response) {
     const { _id, name, role, email } = user;
+
+    const alreadyDeleted = await this.usersService.isDeleted(_id);
+
+    if (alreadyDeleted) {
+      throw new BadRequestException('User already deleted');
+    }
+
     const payload = {
       sub: 'token login',
       iss: 'from server',
@@ -73,12 +84,21 @@ export class AuthService {
     response: Response,
     provider: 'google' | 'facebook',
   ) {
-    if (!userSocial) throw new BadRequestException(`${provider} login failed`);
+    if (!userSocial) {
+      throw new BadRequestException(`${provider} login failed`);
+    }
 
     const { email, name, avatar } = userSocial;
 
     let user = await this.usersService.findOneByEmail(email);
-    if (!user) {
+
+    if (user) {
+      if (user.isDeleted) {
+        throw new BadRequestException(
+          'Your account has been deleted or banned.',
+        );
+      }
+    } else {
       user = await this.usersService.createUserSocial({
         email,
         name,
@@ -106,7 +126,6 @@ export class AuthService {
 
     await this.usersService.updateUserToken(refresh_token, _id.toString());
 
-    // Set refresh token in httpOnly cookie
     response.cookie('ZTC_token', refresh_token, {
       httpOnly: true,
       maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
@@ -114,7 +133,6 @@ export class AuthService {
 
     const access_token = this.jwtService.sign(payload);
 
-    // Redirect to frontend with access token
     return response.redirect(
       `${this.configService.get('LOGIN_SOCIAL_RETURN_URL')}${access_token}`,
     );
