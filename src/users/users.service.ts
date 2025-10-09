@@ -74,7 +74,7 @@ export class UsersService {
 
     return this.userModel
       .findOne({ _id: user._id })
-      .select('-password -deletedBy -refreshToken -isDeleted -deletedAt');
+      .select('-password -refreshToken -isDeleted -deletedAt');
   }
 
   async updateProfile(updateUserDto: UpdateUserDto, user: IUser) {
@@ -90,10 +90,6 @@ export class UsersService {
       },
       {
         ...updateUserDto,
-        updatedBy: {
-          _id: user._id,
-          email: user.email,
-        },
       },
     );
 
@@ -197,7 +193,7 @@ export class UsersService {
   // End Check soft delete
 
   // CRUD
-  async create(createUserDto: CreateUserDto, user: IUser) {
+  async create(createUserDto: CreateUserDto) {
     const { email, password } = createUserDto;
 
     const isExist = await this.userModel.findOne({ email });
@@ -210,10 +206,6 @@ export class UsersService {
     const newUser = await this.userModel.create({
       ...createUserDto,
       password: hashPassword,
-      createdBy: {
-        _id: user._id,
-        email: user.email,
-      },
     });
 
     return {
@@ -267,7 +259,7 @@ export class UsersService {
       .select('-password -refreshToken -isDeleted');
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, user: IUser) {
+  async update(id: string, updateUserDto: UpdateUserDto) {
     const alreadyDeleted = await this.isDeleted(id);
 
     if (alreadyDeleted) {
@@ -280,17 +272,13 @@ export class UsersService {
       },
       {
         ...updateUserDto,
-        updatedBy: {
-          _id: user._id,
-          email: user.email,
-        },
       },
     );
 
     return updated;
   }
 
-  async remove(id: string, user: IUser) {
+  async remove(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id))
       throw new NotFoundException('Invalid User ID!');
 
@@ -301,17 +289,10 @@ export class UsersService {
       throw new BadRequestException('User already deleted');
     }
 
-    await this.userModel.updateOne(
-      { _id: id },
-      {
-        deletedBy: { _id: user._id, email: user.email },
-      },
-    );
-
     return this.userModel.softDelete({ _id: id });
   }
 
-  async removeMulti(ids: string[], user: IUser) {
+  async removeMulti(ids: string[]) {
     if (!ids || ids.length === 0) {
       throw new BadRequestException('No user IDs provided');
     }
@@ -333,18 +314,6 @@ export class UsersService {
     if (validIds.length === 0) {
       throw new BadRequestException('No users are eligible for soft delete');
     }
-
-    await this.userModel.updateMany(
-      { _id: { $in: validIds } },
-      {
-        $set: {
-          deletedBy: {
-            _id: user._id,
-            email: user.email,
-          },
-        },
-      },
-    );
 
     return this.userModel.softDelete({ _id: { $in: validIds } });
   }

@@ -24,8 +24,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto, @User() user: IUser) {
-    return this.usersService.create(createUserDto, user);
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
   }
 
   @Get()
@@ -63,19 +63,19 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
     @User() user: IUser,
   ) {
-    return this.usersService.update(id, updateUserDto, user);
+    return this.usersService.update(id, updateUserDto);
   }
 
   @Delete('delete/:id')
   @ResponseMessage('Xoá người dùng thành công!')
-  remove(@Param('id') id: string, @User() user: IUser) {
-    return this.usersService.remove(id, user);
+  remove(@Param('id') id: string) {
+    return this.usersService.remove(id);
   }
 
   @Delete('delete-multi')
   @ResponseMessage('Xoá nhiều người dùng thành công!')
-  removeMulti(@Body('ids') ids: string[], @User() user: IUser) {
-    return this.usersService.removeMulti(ids, user);
+  removeMulti(@Body('ids') ids: string[]) {
+    return this.usersService.removeMulti(ids);
   }
 
   @Get('trash')
