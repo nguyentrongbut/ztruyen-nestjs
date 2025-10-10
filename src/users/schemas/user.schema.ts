@@ -20,9 +20,6 @@ export class User {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ unique: true })
-  slug: string;
-
   @Prop()
   bio: string;
 
