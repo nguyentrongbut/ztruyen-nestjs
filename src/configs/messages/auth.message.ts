@@ -20,5 +20,5 @@ export const AUTH_MESSAGES = {
   FORGOT_PASSWORD: 'Vui lòng kiểm tra email để đặt lại mật khẩu',
   FORGOT_PASSWORD_FAILED: 'Email không tồn tại trong hệ thống',
   RESET_PASSWORD_SUCCESS: 'Đặt lại mật khẩu thành công',
-  RESET_PASSWORD_FAILED: 'Token không hợp lệ hoặc đã hết hạn',
+  TOKEN_INVALID_OR_EXPIRED: 'Token không hợp lệ hoặc đã hết hạn',
 } as const;

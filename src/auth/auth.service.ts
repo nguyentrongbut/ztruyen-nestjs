@@ -3,14 +3,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-
-// ** Express
-import { Response } from 'express';
 
 // ** Services
 import { UsersService } from '../users/users.service';
@@ -48,7 +44,7 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async login(user: IUser, response: Response) {
+  async login(user: IUser) {
     const { _id, name, role, email } = user;
 
     const alreadyDeleted = await this.usersService.isDeleted(_id);
@@ -71,41 +67,30 @@ export class AuthService {
     // update refresh token in db
     await this.usersService.updateUserToken(refresh_token, _id);
 
-    // set refresh token in httpOnly cookie
-    response.cookie('ZTC_token', refresh_token, {
-      httpOnly: true,
-      maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
-    });
-
     return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        _id,
-        name,
-        email,
-        role,
-      },
+      accessToken: this.jwtService.sign(payload),
+      refresh_token,
+      user: { _id, name, email, role },
     };
   }
 
   async socialLogin(
     userSocial: IUserByGoogle | IUserByFacebook,
-    response: Response,
     provider: ProviderType,
   ) {
     if (!userSocial) {
-      throw new BadRequestException(`${provider} login failed`);
+      throw new BadRequestException(AUTH_MESSAGES.LOGIN_FAILED);
     }
 
     const { email, name, avatar } = userSocial;
 
     let user = await this.usersService.findOneByEmail(email);
 
-    if (user) {
-      if (user.isDeleted) {
-        throw new ForbiddenException(USERS_MESSAGES.DELETED_OR_BANNED);
-      }
-    } else {
+    if (user?.isDeleted) {
+      throw new ForbiddenException(USERS_MESSAGES.DELETED_OR_BANNED);
+    }
+
+    if (!user) {
       user = await this.usersService.createUserSocial({
         email,
         name,
@@ -125,24 +110,17 @@ export class AuthService {
       role,
     };
 
-    const refresh_token = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_TOKEN'),
-      expiresIn:
-        ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')) / 1000,
-    });
+    const refreshToken = await this.createRefreshToken(payload);
+    const accessToken = this.jwtService.sign(payload);
 
-    await this.usersService.updateUserToken(refresh_token, _id.toString());
+    await this.usersService.updateUserToken(refreshToken, _id.toString());
 
-    response.cookie('ZTC_token', refresh_token, {
-      httpOnly: true,
-      maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
-    });
-
-    const access_token = this.jwtService.sign(payload);
-
-    return response.redirect(
-      `${this.configService.get('LOGIN_SOCIAL_RETURN_URL')}${access_token}`,
-    );
+    return {
+      refreshToken,
+      redirectUrl: `${this.configService.get(
+        'LOGIN_SOCIAL_RETURN_URL',
+      )}${accessToken}`,
+    };
   }
 
   async register(user: RegisterUserDto) {
@@ -153,17 +131,15 @@ export class AuthService {
     };
   }
 
-  async logout(response: Response, user: IUser) {
-    await this.usersService.updateUserToken('', user._id);
-    response.clearCookie('ZTC_token');
-    return 'ok';
+  logout(user: IUser) {
+    return this.usersService.updateUserToken('', user._id);
   }
 
   async forgotPassword(email: string) {
     const token = await this.usersService.setResetToken(email);
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-
     const user = await this.usersService.findOneByEmail(email);
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
     const expireTime = formatExpireTime(
       this.configService.get<string>('EMAIL_RESET_PASSWORD_EXPIRE'),
     );
@@ -174,14 +150,11 @@ export class AuthService {
       resetLink,
       expireTime,
     );
-
-    return 'ok';
   }
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.usersService.verifyResetToken(token);
     await this.usersService.updatePassword(user._id.toString(), newPassword);
-    return 'ok';
   }
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -194,15 +167,14 @@ export class AuthService {
   }
 
   async createRefreshToken(payload) {
-    const refresh_token = this.jwtService.sign(payload, {
+    return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_TOKEN'),
       expiresIn:
         ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')) / 1000,
     });
-    return refresh_token;
   }
 
-  async processNewToken(refreshToken: string, response: Response) {
+  async processNewToken(refreshToken: string) {
     if (!refreshToken) {
       throw new BadRequestException(AUTH_MESSAGES.REFRESH_TOKEN_MISSING);
     }
@@ -213,7 +185,6 @@ export class AuthService {
       });
 
       const user = await this.usersService.findUserByToken(refreshToken);
-
       if (!user)
         throw new UnauthorizedException(AUTH_MESSAGES.REFRESH_TOKEN_FAILED);
 
@@ -227,28 +198,16 @@ export class AuthService {
         role,
       };
 
-      const refresh_token = await this.createRefreshToken(payload);
+      const newRefreshToken = await this.createRefreshToken(payload);
+      const newAccessToken = this.jwtService.sign(payload);
 
       // update refresh token in db
-      await this.usersService.updateUserToken(refresh_token, _id.toString());
-
-      // clear old refresh token in cookie
-      response.clearCookie('ZTC_token');
-
-      // set refresh token in httpOnly cookie
-      response.cookie('ZTC_token', refresh_token, {
-        httpOnly: true,
-        maxAge: ms(this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRE')),
-      });
+      await this.usersService.updateUserToken(newRefreshToken, _id.toString());
 
       return {
-        access_token: this.jwtService.sign(payload),
-        user: {
-          _id,
-          name,
-          email,
-          role,
-        },
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        user: { _id, name, email, role },
       };
     } catch (error) {
       throw new UnauthorizedException(AUTH_MESSAGES.REFRESH_TOKEN_FAILED);
