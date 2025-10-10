@@ -26,6 +26,7 @@ import { Public, ResponseMessage, User } from '../decorator/customize';
 
 // ** Guards
 import { LocalAuthGuard } from './passport/guards/local-auth.guard';
+
 import { GoogleAuthGuard } from './passport/guards/google-auth.guard';
 import { FacebookAuthGuard } from './passport/guards/facebook-auth.guard';
 

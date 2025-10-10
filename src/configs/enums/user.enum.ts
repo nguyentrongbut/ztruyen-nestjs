@@ -1,5 +1,11 @@
 export enum ProviderType {
-  LOCAL,
-  GOOGLE,
-  FACEBOOK,
+  LOCAL = 'local',
+  GOOGLE = 'google',
+  FACEBOOK = 'facebook',
+}
+
+export enum RoleType {
+  ADMIN = 'admin',
+  MODERATOR = 'moderator',
+  USER = 'user',
 }

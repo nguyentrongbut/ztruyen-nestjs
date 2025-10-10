@@ -58,7 +58,7 @@ export class UsersService {
     );
   }
 
-  private async ensureNotDeleted(_id: string) {
+  async ensureNotDeleted(_id: string) {
     validateMongoId(_id);
     const user = await this.userModel.findById(_id).select('isDeleted').lean();
     if (!user || user.isDeleted) {
@@ -68,11 +68,9 @@ export class UsersService {
 
   // Auth
   findOneByEmail(email: string) {
-    return this.userModel
-      .findOne({
-        email,
-      })
-      .populate({ path: 'role', select: { name: 1, permissions: 1 } });
+    return this.userModel.findOne({
+      email,
+    });
   }
 
   findUserByToken(refreshToken: string) {
@@ -283,7 +281,9 @@ export class UsersService {
 
   async findOneDeleted(id: string) {
     validateMongoId(id);
-    return this.userModel.findById(id).select('-password -refreshToken -isDeleted');
+    return this.userModel
+      .findById(id)
+      .select('-password -refreshToken -isDeleted');
   }
 
   async hardRemove(id: string) {

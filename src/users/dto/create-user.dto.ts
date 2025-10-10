@@ -2,7 +2,6 @@
 import {
   IsEmail,
   IsEnum,
-  IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsString,
@@ -10,7 +9,7 @@ import {
 import { Optional } from '@nestjs/common';
 
 // ** Enums
-import { ProviderType } from '../../configs/enums/user.enum';
+import { ProviderType, RoleType } from '../../configs/enums/user.enum';
 
 export class CreateUserDto {
   @IsNotEmpty()
@@ -32,9 +31,10 @@ export class CreateUserDto {
   @IsNumber()
   age: number;
 
-  @IsNotEmpty()
-  @IsMongoId()
-  role: string;
+  @IsEnum(RoleType, {
+    message: 'Role must be one of: user, admin, moderator',
+  })
+  role: RoleType;
 
   @IsNotEmpty()
   @IsString()

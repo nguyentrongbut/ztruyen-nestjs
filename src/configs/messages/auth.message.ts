@@ -1,4 +1,7 @@
 export const AUTH_MESSAGES = {
+  UNAUTHORIZED: 'Bạn cần đăng nhập để truy cập tài nguyên này',
+  PERMISSION_DENIED: 'Bạn không có quyền thực hiện hành động này',
+
   // --- LOGIN ---
   INVALID_CREDENTIALS: 'Email hoặc mật khẩu không hợp lệ',
   LOGIN_SUCCESS: 'Đăng nhập thành công',

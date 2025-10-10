@@ -47,11 +47,7 @@ export class AuthService {
   async login(user: IUser) {
     const { _id, name, role, email } = user;
 
-    const alreadyDeleted = await this.usersService.isDeleted(_id);
-
-    if (alreadyDeleted) {
-      throw new ForbiddenException(USERS_MESSAGES.DELETED_OR_BANNED);
-    }
+    await this.usersService.ensureNotDeleted(_id);
 
     const payload = {
       sub: 'token login',
