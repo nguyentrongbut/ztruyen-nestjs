@@ -18,6 +18,9 @@ import FormData from 'form-data';
 // ** Slugify
 import slugify from 'slugify';
 
+// ** Messages
+import { UPLOAD_MESSAGES } from '../configs/messages/upload.message';
+
 @Injectable()
 export class UploadTelegramService {
   private readonly token: string;
@@ -36,13 +39,11 @@ export class UploadTelegramService {
     try {
       const res = await axios.get(this.apiUrl(`getFile?file_id=${fileId}`));
       if (!res.data.ok) {
-        throw new NotFoundException(`File not found on Telegram: ${fileId}`);
+        throw new NotFoundException(UPLOAD_MESSAGES.FILE_NOT_FOUND);
       }
       return res.data.result.file_path;
     } catch (error) {
-      throw new NotFoundException(
-        `Error fetching file from Telegram: ${error}`,
-      );
+      throw new NotFoundException(UPLOAD_MESSAGES.FETCH_FILE_ERROR);
     }
   }
 
@@ -57,7 +58,7 @@ export class UploadTelegramService {
       return response.data;
     } catch (error) {
       throw new NotFoundException(
-        `Error streaming file from Telegram: ${error}`,
+        UPLOAD_MESSAGES.STREAM_FILE_ERROR
       );
     }
   }
@@ -67,7 +68,7 @@ export class UploadTelegramService {
     filename = 'image.jpg',
     caption: string,
   ) {
-    if (!caption) throw new BadRequestException('Caption is required');
+    if (!caption) throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
 
     const form = new FormData();
     form.append('chat_id', this.chatId);
@@ -80,7 +81,7 @@ export class UploadTelegramService {
       maxContentLength: Infinity,
     });
 
-    if (!res.data.ok) throw new Error('Upload failed');
+    if (!res.data.ok) throw new Error(UPLOAD_MESSAGES.UPLOAD_FAILED);
 
     const fileId = res.data.result.photo.pop().file_id;
     const slug = slugify(caption, { lower: true });
@@ -89,7 +90,7 @@ export class UploadTelegramService {
   }
 
   async sendPhotosByBuffers(files: Express.Multer.File[], caption: string) {
-    if (!caption) throw new BadRequestException('Caption is required');
+    if (!caption) throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
     const form = new FormData();
     const media: any[] = [];
 
@@ -111,7 +112,7 @@ export class UploadTelegramService {
       maxContentLength: Infinity,
     });
 
-    if (!res.data.ok) throw new Error('Upload failed');
+    if (!res.data.ok) throw new Error(UPLOAD_MESSAGES.UPLOAD_FAILED);
     const fields = res.data.result.map((msg, i) => ({
       fileId: msg.photo.pop().file_id,
       slug: slugify(`${caption}-${i + 1}`, { lower: true }),

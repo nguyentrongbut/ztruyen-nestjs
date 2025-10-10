@@ -4,6 +4,9 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 // ** Mongoose
 import { HydratedDocument } from 'mongoose';
 
+// ** Enums
+import { ProviderType } from '../../configs/enums/user.enum';
+
 export type UserDocument = HydratedDocument<User>;
 
 @Schema({ timestamps: true })
@@ -38,8 +41,12 @@ export class User {
   @Prop({ default: 'user' })
   role: string;
 
-  @Prop({ default: 'local' })
-  provider: string;
+  @Prop({
+    type: String,
+    enum: Object.values(ProviderType),
+    default: ProviderType.LOCAL,
+  })
+  provider: ProviderType;
 
   @Prop()
   resetToken?: string;

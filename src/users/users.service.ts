@@ -35,7 +35,12 @@ import ms from 'ms';
 
 // ** Mongoose
 import mongoose from 'mongoose';
+
+// ** Interface
 import { IUser } from './users.interface';
+
+// ** Message
+import { USERS_MESSAGES } from '../configs/messages/user.message';
 
 @Injectable()
 export class UsersService {
@@ -69,7 +74,7 @@ export class UsersService {
     const alreadyDeleted = await this.isDeleted(user._id);
 
     if (alreadyDeleted) {
-      throw new BadRequestException('User already deleted');
+      throw new BadRequestException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     return this.userModel
@@ -81,7 +86,7 @@ export class UsersService {
     const alreadyDeleted = await this.isDeleted(user._id);
 
     if (alreadyDeleted) {
-      throw new BadRequestException('User already deleted');
+      throw new BadRequestException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     const updated = await this.userModel.updateOne(
@@ -113,7 +118,7 @@ export class UsersService {
     const { name, email, password, age, gender } = user;
     const isExist = await this.userModel.findOne({ email });
     if (isExist) {
-      throw new BadRequestException('User with email already exists');
+      throw new BadRequestException(USERS_MESSAGES.EMAIL_EXISTED);
     }
     const hashPassword = this.getHashPassword(password);
     const newRegister = await this.userModel.create({
@@ -136,7 +141,7 @@ export class UsersService {
   // forgot password
   async setResetToken(email: string) {
     const user = await this.findOneByEmail(email);
-    if (!user) throw new BadRequestException('User not found');
+    if (!user) throw new BadRequestException(USERS_MESSAGES.USER_NOT_FOUND);
 
     const token = randomBytes(32).toString('hex');
     const expiry = new Date(
@@ -152,7 +157,7 @@ export class UsersService {
   async verifyResetToken(token: string) {
     const user = await this.userModel.findOne({ resetToken: token });
     if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      throw new BadRequestException('Invalid or expired token');
+      throw new BadRequestException(USERS_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
     }
     return user;
   }
@@ -179,13 +184,13 @@ export class UsersService {
   // Check soft delete
   async isDeleted(_id: string): Promise<boolean> {
     if (!mongoose.Types.ObjectId.isValid(_id)) {
-      throw new NotFoundException('Invalid user ID!');
+      throw new NotFoundException(USERS_MESSAGES.INVALID_ID);
     }
 
     const user = await this.userModel.findById(_id).select('isDeleted').lean();
 
     if (!user) {
-      throw new NotFoundException('User not found!');
+      throw new NotFoundException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     return !!user.isDeleted;
@@ -199,7 +204,7 @@ export class UsersService {
 
     const isExist = await this.userModel.findOne({ email });
     if (isExist) {
-      throw new BadRequestException('User with email already exists');
+      throw new BadRequestException(USERS_MESSAGES.EMAIL_EXISTED);
     }
 
     const hashPassword = this.getHashPassword(password);
@@ -250,7 +255,7 @@ export class UsersService {
     const alreadyDeleted = await this.isDeleted(id);
 
     if (alreadyDeleted) {
-      throw new BadRequestException('User already deleted');
+      throw new BadRequestException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     return this.userModel
@@ -264,7 +269,7 @@ export class UsersService {
     const alreadyDeleted = await this.isDeleted(id);
 
     if (alreadyDeleted) {
-      throw new BadRequestException('User already deleted');
+      throw new BadRequestException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     const updated = await this.userModel.updateOne(
@@ -283,7 +288,7 @@ export class UsersService {
     const alreadyDeleted = await this.isDeleted(id);
 
     if (alreadyDeleted) {
-      throw new BadRequestException('User already deleted');
+      throw new BadRequestException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     return this.userModel.softDelete({ _id: id });
@@ -291,14 +296,12 @@ export class UsersService {
 
   async removeMulti(ids: string[]) {
     if (!ids || ids.length === 0) {
-      throw new BadRequestException('No user IDs provided');
+      throw new BadRequestException(USERS_MESSAGES.INVALID_IDS);
     }
 
     const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
     if (invalidIds.length > 0) {
-      throw new BadRequestException(
-        `Invalid user IDs: ${invalidIds.join(', ')}`,
-      );
+      throw new BadRequestException(USERS_MESSAGES.INVALID_IDS);
     }
 
     const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
@@ -309,7 +312,7 @@ export class UsersService {
 
     const validIds = notDeletedUsers.map((u) => u._id);
     if (validIds.length === 0) {
-      throw new BadRequestException('No users are eligible for soft delete');
+      throw new BadRequestException(USERS_MESSAGES.NO_ELIGIBLE);
     }
 
     return this.userModel.softDelete({ _id: { $in: validIds } });
@@ -353,7 +356,7 @@ export class UsersService {
 
   async findOneDeleted(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id))
-      throw new NotFoundException('Not found User!');
+      throw new NotFoundException(USERS_MESSAGES.INVALID_ID);
 
     return this.userModel
       .findOne({
@@ -364,7 +367,7 @@ export class UsersService {
 
   async hardRemove(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new NotFoundException('Invalid User ID!');
+      throw new NotFoundException(USERS_MESSAGES.INVALID_ID);
     }
 
     return this.userModel.deleteOne({ _id: id });
@@ -372,14 +375,12 @@ export class UsersService {
 
   async hardRemoveMulti(ids: string[]) {
     if (!ids || ids.length === 0) {
-      throw new BadRequestException('No user IDs provided');
+      throw new BadRequestException(USERS_MESSAGES.INVALID_IDS);
     }
 
     const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
     if (invalidIds.length > 0) {
-      throw new BadRequestException(
-        `Invalid user IDs: ${invalidIds.join(', ')}`,
-      );
+      throw new BadRequestException(USERS_MESSAGES.INVALID_IDS);
     }
 
     const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
@@ -390,17 +391,27 @@ export class UsersService {
 
     const validIds = deletedUsers.map((u) => u._id);
     if (validIds.length === 0) {
-      throw new BadRequestException('No users are eligible for hard delete');
+      throw new BadRequestException(USERS_MESSAGES.NO_ELIGIBLE);
     }
 
     return this.userModel.deleteMany({ _id: { $in: validIds } });
   }
 
   async restore(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new NotFoundException(USERS_MESSAGES.INVALID_ID);
+    }
     return this.userModel.restore({ _id: id });
   }
 
   async restoreMulti(ids: string[]) {
+    if (!ids || ids.length === 0) {
+      throw new BadRequestException(USERS_MESSAGES.INVALID_IDS);
+    }
+    const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(USERS_MESSAGES.INVALID_IDS);
+    }
     return this.userModel.restore({ _id: { $in: ids } });
   }
 

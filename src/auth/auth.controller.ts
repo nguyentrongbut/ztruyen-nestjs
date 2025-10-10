@@ -29,13 +29,19 @@ import { FacebookAuthGuard } from './passport/guards/facebook-auth.guard';
 // ** Interface
 import { IUser } from '../users/users.interface';
 
+// ** Messages
+import { AUTH_MESSAGES } from '../configs/messages/auth.message';
+
+// ** Enums
+import { ProviderType } from '../configs/enums/user.enum';
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
   @UseGuards(LocalAuthGuard)
-  @ResponseMessage('Login successful')
+  @ResponseMessage(AUTH_MESSAGES.LOGIN_SUCCESS)
   @Post('login')
   async handleLogin(
     @Req() req,
@@ -46,40 +52,48 @@ export class AuthController {
 
   @Public()
   @Get('google')
+  @ResponseMessage(AUTH_MESSAGES.SOCIAL_LOGIN_SUCCESS)
   @UseGuards(GoogleAuthGuard)
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   async googleAuth() {}
 
   @Public()
   @Get('facebook')
+  @ResponseMessage(AUTH_MESSAGES.SOCIAL_LOGIN_SUCCESS)
   @UseGuards(FacebookAuthGuard)
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   async login() {}
 
   @Public()
   @Get('google/callback')
+  @ResponseMessage(AUTH_MESSAGES.SOCIAL_LOGIN_SUCCESS)
   @UseGuards(GoogleAuthGuard)
   async googleAuthRedirect(@Req() req, @Res() response: Response) {
-    return this.authService.socialLogin(req.user, response, 'google');
+    return this.authService.socialLogin(
+      req.user,
+      response,
+      ProviderType.GOOGLE,
+    );
   }
 
   @Public()
   @Get('facebook/callback')
+  @ResponseMessage(AUTH_MESSAGES.SOCIAL_LOGIN_SUCCESS)
   @UseGuards(FacebookAuthGuard)
   async facebookCallback(@Req() req, @Res() res: Response) {
-    return this.authService.socialLogin(req.user, res, 'facebook');
+    return this.authService.socialLogin(req.user, res, ProviderType.FACEBOOK);
   }
 
   @Public()
-  @ResponseMessage('Registration successful')
   @Post('register')
+  @ResponseMessage(AUTH_MESSAGES.REGISTRATION_SUCCESS)
   handleRegister(@Body() registerUserDto: RegisterUserDto) {
     return this.authService.register(registerUserDto);
   }
 
   @Public()
-  @ResponseMessage('Get new refresh token successful')
   @Get('/refresh')
+  @ResponseMessage(AUTH_MESSAGES.REFRESH_TOKEN_SUCCESS)
   handleRefreshToken(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -88,8 +102,8 @@ export class AuthController {
     return this.authService.processNewToken(refreshToken, response);
   }
 
-  @ResponseMessage('Logout successful')
   @Post('/logout')
+  @ResponseMessage(AUTH_MESSAGES.LOGOUT_SUCCESS)
   handleLogout(
     @Res({ passthrough: true }) response: Response,
     @User() user: IUser,
@@ -99,14 +113,14 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
-  @ResponseMessage('Please check your email to reset your password')
+  @ResponseMessage(AUTH_MESSAGES.FORGOT_PASSWORD)
   forgotPassword(@Body('email') email: string) {
     return this.authService.forgotPassword(email);
   }
 
   @Public()
   @Post('reset-password')
-  @ResponseMessage('Password reset successfully')
+  @ResponseMessage(AUTH_MESSAGES.RESET_PASSWORD_SUCCESS)
   resetPassword(@Body() body: { token: string; newPassword: string }) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }

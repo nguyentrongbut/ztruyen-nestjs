@@ -18,6 +18,9 @@ import { UploadTelegramService } from '../upload-telegram/upload-telegram.servic
 // ** Schemas
 import { Image, ImageDocument } from './schemas/image.schema';
 
+// ** Messages
+import { IMAGE_MESSAGES } from '../configs/messages/image.message';
+
 @Injectable()
 export class ImagesService {
   constructor(
@@ -27,7 +30,7 @@ export class ImagesService {
 
   async findImage(slug: string, res: Response) {
     const image = await this.imageModel.findOne({ slug });
-    if (!image) throw new NotFoundException('Image not found');
+    if (!image) throw new NotFoundException(IMAGE_MESSAGES.NOT_FOUND);
 
     const stream = await this.uploadTelegramService.getFileStream(image.fileId);
 
@@ -41,7 +44,7 @@ export class ImagesService {
   async create(fileId: string, slug: string) {
     const isExist = await this.imageModel.findOne({ slug });
     if (isExist) {
-      throw new BadRequestException('Slug already exists');
+      throw new BadRequestException(IMAGE_MESSAGES.SLUG_EXISTS);
     }
     const newImage = await this.imageModel.create({
       fileId,
@@ -53,7 +56,7 @@ export class ImagesService {
 
   async createMany(fields: { fileId: string; slug: string }[]) {
     if (!fields || fields.length === 0) {
-      throw new BadRequestException('No fields provided');
+      throw new BadRequestException(IMAGE_MESSAGES.NO_FIELDS_PROVIDED);
     }
 
     // Filter out invalid entries
@@ -76,7 +79,7 @@ export class ImagesService {
   async remove(slug: string) {
     const image = await this.imageModel.findOne({ slug });
     if (!image) {
-      throw new NotFoundException(`Image with slug "${slug}" not found`);
+      throw new NotFoundException(IMAGE_MESSAGES.NOT_FOUND);
     }
 
     await this.imageModel.deleteOne({ slug });
@@ -85,12 +88,12 @@ export class ImagesService {
 
   async removeMany(slugs: string[]) {
     if (!slugs || slugs.length === 0) {
-      throw new BadRequestException('No slugs provided');
+      throw new BadRequestException(IMAGE_MESSAGES.NO_SLUGS_PROVIDED);
     }
 
     const images = await this.imageModel.find({ slug: { $in: slugs } });
     if (!images || images.length === 0) {
-      throw new NotFoundException('No images found for the given slugs');
+      throw new NotFoundException(IMAGE_MESSAGES.NO_IMAGES_FOUND_FOR_SLUGS);
     }
 
     const result = await this.imageModel.deleteMany({ slug: { $in: slugs } });

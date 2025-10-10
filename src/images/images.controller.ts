@@ -15,7 +15,10 @@ import { Response, Request } from 'express';
 import { ImagesService } from './images.service';
 
 // ** Decorator
-import { Public } from '../decorator/customize';
+import { Public, ResponseMessage } from '../decorator/customize';
+
+// ** Message
+import { IMAGE_MESSAGES } from '../configs/messages/image.message';
 
 @Controller('images')
 export class ImagesController {
@@ -23,6 +26,7 @@ export class ImagesController {
 
   @Public()
   @Get('/:type/:slug')
+  @ResponseMessage(IMAGE_MESSAGES.FETCH_SUCCESS)
   findImage(
     @Param('slug') slug: string,
     @Res() res: Response,
@@ -36,7 +40,7 @@ export class ImagesController {
       !referer ||
       !allowedOrigins.some((origin) => referer.startsWith(origin))
     ) {
-      throw new ForbiddenException('Access to image is forbidden');
+      throw new ForbiddenException(IMAGE_MESSAGES.ACCESS_FORBIDDEN);
     }
 
     return this.imagesService.findImage(slug, res);

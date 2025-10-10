@@ -6,6 +6,9 @@ import { ConfigService } from '@nestjs/config';
 // ** Passport
 import { Strategy } from 'passport-facebook';
 
+// ** Enums
+import { ProviderType } from '../../../configs/enums/user.enum';
+
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
   constructor(private configService: ConfigService) {
@@ -37,7 +40,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
       email: emails?.[0]?.value || `${id}@facebook.com`,
       name: `${name?.givenName || ''} ${name?.familyName || ''}`.trim(),
       avatar: photos?.[0]?.value,
-      provider: 'facebook',
+      provider: ProviderType.FACEBOOK,
       accessToken,
     };
     done(null, user);

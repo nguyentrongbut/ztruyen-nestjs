@@ -1,6 +1,10 @@
 // ** NestJs
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 // ** Passport
@@ -10,11 +14,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { IUser } from '../../../users/users.interface';
 import { UsersService } from '../../../users/users.service';
 
+// ** Message
+import { USERS_MESSAGES } from '../../../configs/messages/user.message';
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
-    private usersService: UsersService
+    private usersService: UsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -29,11 +36,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.usersService.findOne(_id);
 
     if (!user) {
-      throw new UnauthorizedException('User not found!');
+      throw new UnauthorizedException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     if (user.isDeleted) {
-      throw new UnauthorizedException('User has been deleted or banned!');
+      throw new ForbiddenException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     return {

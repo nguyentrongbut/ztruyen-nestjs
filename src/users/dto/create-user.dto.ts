@@ -1,12 +1,16 @@
 // ** Class Validator
 import {
   IsEmail,
+  IsEnum,
   IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsString,
 } from 'class-validator';
 import { Optional } from '@nestjs/common';
+
+// ** Enums
+import { ProviderType } from '../../configs/enums/user.enum';
 
 export class CreateUserDto {
   @IsNotEmpty()
@@ -72,6 +76,8 @@ export class CreateUserSocialDto {
   @IsNotEmpty()
   avatar: string;
 
-  @IsNotEmpty()
-  provider: string;
+  @IsEnum(ProviderType, {
+    message: 'Provider must be one of: local, google, facebook',
+  })
+  provider: ProviderType;
 }

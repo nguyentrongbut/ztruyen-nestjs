@@ -1,8 +1,10 @@
 // ** NestJs
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +32,13 @@ import { RegisterUserDto } from '../users/dto/create-user.dto';
 // ** Utils
 import { formatExpireTime } from '../utils/timeFormatter';
 
+// ** Enums
+import { ProviderType } from '../configs/enums/user.enum';
+
+// ** Message
+import { USERS_MESSAGES } from '../configs/messages/user.message';
+import { AUTH_MESSAGES } from '../configs/messages/auth.message';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -45,7 +54,7 @@ export class AuthService {
     const alreadyDeleted = await this.usersService.isDeleted(_id);
 
     if (alreadyDeleted) {
-      throw new BadRequestException('User already deleted');
+      throw new ForbiddenException(USERS_MESSAGES.DELETED_OR_BANNED);
     }
 
     const payload = {
@@ -82,7 +91,7 @@ export class AuthService {
   async socialLogin(
     userSocial: IUserByGoogle | IUserByFacebook,
     response: Response,
-    provider: 'google' | 'facebook',
+    provider: ProviderType,
   ) {
     if (!userSocial) {
       throw new BadRequestException(`${provider} login failed`);
@@ -94,9 +103,7 @@ export class AuthService {
 
     if (user) {
       if (user.isDeleted) {
-        throw new BadRequestException(
-          'Your account has been deleted or banned.',
-        );
+        throw new ForbiddenException(USERS_MESSAGES.DELETED_OR_BANNED);
       }
     } else {
       user = await this.usersService.createUserSocial({
@@ -196,6 +203,10 @@ export class AuthService {
   }
 
   async processNewToken(refreshToken: string, response: Response) {
+    if (!refreshToken) {
+      throw new BadRequestException(AUTH_MESSAGES.REFRESH_TOKEN_MISSING);
+    }
+
     try {
       this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN'),
@@ -203,7 +214,8 @@ export class AuthService {
 
       const user = await this.usersService.findUserByToken(refreshToken);
 
-      if (!user) throw new BadRequestException('Refresh token invalid');
+      if (!user)
+        throw new UnauthorizedException(AUTH_MESSAGES.REFRESH_TOKEN_FAILED);
 
       const { _id, name, email, role } = user;
       const payload = {
@@ -239,7 +251,7 @@ export class AuthService {
         },
       };
     } catch (error) {
-      throw new BadRequestException('Refresh token invalid');
+      throw new UnauthorizedException(AUTH_MESSAGES.REFRESH_TOKEN_FAILED);
     }
   }
 }

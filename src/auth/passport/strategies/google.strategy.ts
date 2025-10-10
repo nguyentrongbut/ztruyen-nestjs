@@ -6,6 +6,9 @@ import { ConfigService } from '@nestjs/config';
 // ** Passport
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 
+// ** Enums
+import { ProviderType } from '../../../configs/enums/user.enum';
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private configService: ConfigService) {
@@ -28,7 +31,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       email: emails?.[0]?.value,
       name: name?.givenName + ' ' + name?.familyName,
       avatar: photos?.[0]?.value,
-      provider: 'google',
+      provider: ProviderType.GOOGLE,
       accessToken,
     };
     done(null, user);
