@@ -18,6 +18,9 @@ import FormData from 'form-data';
 // ** Slugify
 import slugify from 'slugify';
 
+// ** Sharp
+import sharp from 'sharp';
+
 // ** Messages
 import { UPLOAD_MESSAGES } from '../configs/messages/upload.message';
 
@@ -29,10 +32,43 @@ export class UploadTelegramService {
   constructor(private readonly configService: ConfigService) {
     this.token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     this.chatId = this.configService.get<string>('TELEGRAM_CHAT_ID');
+
+    if (!this.token || !this.chatId) {
+      throw new Error(
+        'Missing configuration: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID',
+      );
+    }
   }
 
   private apiUrl(method: string) {
     return `https://api.telegram.org/bot${this.token}/${method}`;
+  }
+
+  private async convertToWebP(
+    fileBuffer: Buffer,
+    filename: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    try {
+      const metadata = await sharp(fileBuffer).metadata();
+
+      if (metadata.format === 'webp') {
+        return { buffer: fileBuffer, filename };
+      }
+
+      const webpBuffer = await sharp(fileBuffer)
+        .webp({
+          quality: 95,
+          lossless: false,
+          effort: 6,
+        })
+        .toBuffer();
+
+      const newFilename = filename.replace(/\.[^.]+$/, '.webp');
+
+      return { buffer: webpBuffer, filename: newFilename };
+    } catch {
+      return { buffer: fileBuffer, filename };
+    }
   }
 
   async getFilePath(fileId: string): Promise<string> {
@@ -42,7 +78,7 @@ export class UploadTelegramService {
         throw new NotFoundException(UPLOAD_MESSAGES.FILE_NOT_FOUND);
       }
       return res.data.result.file_path;
-    } catch (error) {
+    } catch {
       throw new NotFoundException(UPLOAD_MESSAGES.FETCH_FILE_ERROR);
     }
   }
@@ -56,68 +92,196 @@ export class UploadTelegramService {
         responseType: 'stream',
       });
       return response.data;
-    } catch (error) {
-      throw new NotFoundException(
-        UPLOAD_MESSAGES.STREAM_FILE_ERROR
+    } catch {
+      throw new NotFoundException(UPLOAD_MESSAGES.STREAM_FILE_ERROR);
+    }
+  }
+
+  async sendDocumentByBuffer(
+    fileBuffer: Buffer,
+    filename: string,
+    caption: string,
+  ) {
+    if (!caption) {
+      throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
+    }
+
+    try {
+      const { buffer: convertedBuffer, filename: convertedFilename } =
+        await this.convertToWebP(fileBuffer, filename);
+
+      const form = new FormData();
+      form.append('chat_id', this.chatId);
+      form.append('document', convertedBuffer, { filename: convertedFilename });
+      form.append('caption', caption);
+
+      const res = await axios.post(this.apiUrl('sendDocument'), form, {
+        headers: form.getHeaders(),
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+        params: { disable_content_type_detection: true },
+      });
+
+      if (!res.data.ok) {
+        throw new BadRequestException(
+          res.data.description || UPLOAD_MESSAGES.UPLOAD_FAILED,
+        );
+      }
+
+      const result = res.data.result;
+      let fileId, fileSize, mimeType, type;
+
+      if (result.document) {
+        fileId = result.document.file_id;
+        fileSize = result.document.file_size;
+        mimeType = result.document.mime_type;
+        type = 'document';
+      } else if (result.sticker) {
+        fileId = result.sticker.file_id;
+        fileSize = result.sticker.file_size;
+        mimeType = 'image/webp';
+        type = 'sticker';
+      } else if (result.photo) {
+        const photos = result.photo;
+        fileId = photos[photos.length - 1].file_id;
+        fileSize = photos[photos.length - 1].file_size;
+        mimeType = 'image/jpeg';
+        type = 'photo';
+      } else {
+        throw new BadRequestException(
+          'Telegram did not return a file. Response: ' + JSON.stringify(result),
+        );
+      }
+
+      const slug = slugify(caption, { lower: true, strict: true });
+
+      return {
+        fileId,
+        slug,
+        filename: convertedFilename,
+        originalFilename: filename,
+        fileSize,
+        mimeType,
+        type,
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        `Failed to upload document: ${
+          error.message || UPLOAD_MESSAGES.UPLOAD_FAILED
+        }`,
       );
     }
   }
 
-  async sendPhotoByBuffer(
-    fileBuffer: Buffer,
-    filename = 'image.jpg',
-    caption: string,
-  ) {
-    if (!caption) throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
+  async sendDocumentsByBuffers(files: Express.Multer.File[], caption: string) {
+    if (!caption) {
+      throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
+    }
 
-    const form = new FormData();
-    form.append('chat_id', this.chatId);
-    form.append('photo', fileBuffer, { filename });
-    if (caption) form.append('caption', caption);
+    if (files.length === 0) {
+      throw new BadRequestException('No files to upload');
+    }
 
-    const res = await axios.post(this.apiUrl('sendPhoto'), form, {
-      headers: form.getHeaders(),
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
+    if (files.length > 10) {
+      throw new BadRequestException(
+        'Telegram allows a maximum of 10 files per upload',
+      );
+    }
 
-    if (!res.data.ok) throw new Error(UPLOAD_MESSAGES.UPLOAD_FAILED);
+    try {
+      const convertedFiles = await Promise.all(
+        files.map(async (file) => {
+          const { buffer, filename } = await this.convertToWebP(
+            file.buffer,
+            file.originalname,
+          );
+          return { buffer, filename, originalname: file.originalname };
+        }),
+      );
 
-    const fileId = res.data.result.photo.pop().file_id;
-    const slug = slugify(caption, { lower: true });
+      const uploadResults = await Promise.allSettled(
+        convertedFiles.map(async (file, i) => {
+          const fileCaption = i === 0 ? caption : `${caption} (${i + 1})`;
 
-    return { fileId, slug };
-  }
+          const form = new FormData();
+          form.append('chat_id', this.chatId);
+          form.append('document', file.buffer, {
+            filename: file.filename,
+            contentType: 'image/webp',
+          });
+          form.append('caption', fileCaption);
 
-  async sendPhotosByBuffers(files: Express.Multer.File[], caption: string) {
-    if (!caption) throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
-    const form = new FormData();
-    const media: any[] = [];
+          const res = await axios.post(this.apiUrl('sendDocument'), form, {
+            headers: form.getHeaders(),
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+            params: { disable_content_type_detection: true },
+          });
 
-    files.forEach((file, i) => {
-      media.push({
-        type: 'photo',
-        media: `attach://photo${i}`,
-        caption: i === 0 && caption ? caption : undefined,
-      });
-      form.append(`photo${i}`, file.buffer, { filename: file.originalname });
-    });
+          if (!res.data.ok) {
+            throw new Error(res.data.description || 'Upload failed');
+          }
 
-    form.append('chat_id', this.chatId);
-    form.append('media', JSON.stringify(media));
+          const result = res.data.result;
+          let fileId, fileSize, mimeType, type;
 
-    const res = await axios.post(this.apiUrl('sendMediaGroup'), form, {
-      headers: form.getHeaders(),
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
+          if (result.document) {
+            fileId = result.document.file_id;
+            fileSize = result.document.file_size;
+            mimeType = result.document.mime_type;
+            type = 'document';
+          } else if (result.sticker) {
+            fileId = result.sticker.file_id;
+            fileSize = result.sticker.file_size;
+            mimeType = 'image/webp';
+            type = 'sticker';
+          } else if (result.photo) {
+            const photos = result.photo;
+            fileId = photos[photos.length - 1].file_id;
+            fileSize = photos[photos.length - 1].file_size;
+            mimeType = 'image/jpeg';
+            type = 'photo';
+          }
 
-    if (!res.data.ok) throw new Error(UPLOAD_MESSAGES.UPLOAD_FAILED);
-    const fields = res.data.result.map((msg, i) => ({
-      fileId: msg.photo.pop().file_id,
-      slug: slugify(`${caption}-${i + 1}`, { lower: true }),
-    }));
+          return {
+            fileId,
+            slug: slugify(`${caption}-${i + 1}`, { lower: true, strict: true }),
+            filename: file.filename,
+            originalFilename: file.originalname,
+            fileSize,
+            mimeType,
+            type,
+          };
+        }),
+      );
 
-    return { fields };
+      const fields = uploadResults
+        .filter((result) => result.status === 'fulfilled')
+        .map((result: any) => result.value);
+
+      const failedFiles = uploadResults
+        .map((result, i) => ({ result, index: i }))
+        .filter(({ result }) => result.status === 'rejected')
+        .map(({ index }) => convertedFiles[index].filename);
+
+      if (fields.length === 0) {
+        throw new BadRequestException('All files failed to upload');
+      }
+
+      return {
+        fields,
+        total: fields.length,
+        failed: failedFiles.length,
+        failedFiles,
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        `Failed to upload multiple documents: ${
+          error.message || UPLOAD_MESSAGES.UPLOAD_FAILED
+        }`,
+      );
+    }
   }
 }

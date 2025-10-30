@@ -26,12 +26,34 @@ import { UPLOAD_MESSAGES } from '../configs/messages/upload.message';
 export class UploadTelegramController {
   constructor(private readonly uploadTelegramService: UploadTelegramService) {}
 
+  private fileFilter = (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+      'image/tiff',
+    ];
+
+    if (!allowedMimes.includes(file.mimetype)) {
+      return cb(
+        new BadRequestException(
+          `Chỉ chấp nhận file: ${allowedMimes.join(', ')}`,
+        ),
+        false,
+      );
+    }
+    cb(null, true);
+  };
+
   @Post('upload')
   @ResponseMessage(UPLOAD_MESSAGES.UPLOAD_SINGLE_SUCCESS)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
           return cb(
@@ -43,12 +65,14 @@ export class UploadTelegramController {
       },
     }),
   )
-  async uploadOne(
+  async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body('caption') caption: string,
   ) {
-    if (!file) throw new BadRequestException(UPLOAD_MESSAGES.NO_FILE_UPLOADED);
-    return this.uploadTelegramService.sendPhotoByBuffer(
+    if (!file) {
+      throw new BadRequestException(UPLOAD_MESSAGES.NO_FILE_UPLOADED);
+    }
+    return this.uploadTelegramService.sendDocumentByBuffer(
       file.buffer,
       file.originalname,
       caption,
@@ -60,7 +84,7 @@ export class UploadTelegramController {
   @UseInterceptors(
     FilesInterceptor('files', 10, {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
           return cb(
@@ -72,12 +96,13 @@ export class UploadTelegramController {
       },
     }),
   )
-  async uploadMany(
+  async uploadManyDocuments(
     @UploadedFiles() files: Express.Multer.File[],
     @Body('caption') caption: string,
   ) {
-    if (!files || files.length === 0)
+    if (!files || files.length === 0) {
       throw new BadRequestException(UPLOAD_MESSAGES.NO_FILES_UPLOADED);
-    return this.uploadTelegramService.sendPhotosByBuffers(files, caption);
+    }
+    return this.uploadTelegramService.sendDocumentsByBuffers(files, caption);
   }
 }
