@@ -33,7 +33,7 @@ export class ImagesController {
     @Req() req: Request,
   ) {
     const referer = req.get('referer');
-    const allowedOrigins = ['http://localhost:3000'];
+    const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173'];
 
     // Check referer
     if (

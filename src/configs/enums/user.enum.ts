@@ -6,6 +6,6 @@ export enum ProviderType {
 
 export enum RoleType {
   ADMIN = 'admin',
-  MODERATOR = 'moderator',
+  AUTHOR = 'author',
   USER = 'user',
 }

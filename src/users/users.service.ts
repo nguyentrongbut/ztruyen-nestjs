@@ -1,9 +1,5 @@
 // ** NestJs
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 
@@ -32,9 +28,6 @@ import { randomBytes } from 'crypto';
 
 // ** ms
 import ms from 'ms';
-
-// ** Mongoose
-import mongoose from 'mongoose';
 
 // ** Interface
 import { IUser } from './users.interface';
@@ -115,11 +108,17 @@ export class UsersService {
 
   async updatePassword(userId: string, password: string) {
     const hashed = this.getHashPassword(password);
-    return this.userModel.findByIdAndUpdate(userId, {
-      password: hashed,
-      resetToken: null,
-      resetTokenExpiry: null,
-    });
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          password: hashed,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      },
+      { new: true },
+    );
   }
 
   async createUserSocial(createUserSocialDto: CreateUserSocialDto) {
@@ -136,7 +135,7 @@ export class UsersService {
 
   async updateProfile(updateUserDto: UpdateUserDto, user: IUser) {
     await this.ensureNotDeleted(user._id);
-    return this.userModel.updateOne({ _id: user._id }, updateUserDto);
+    return this.userModel.updateOne({ _id: user._id }, { $set: updateUserDto });
   }
 
   isValidPassword(password: string, hash: string) {
@@ -144,12 +143,7 @@ export class UsersService {
   }
 
   updateUserToken(refreshToken: string, _id: string) {
-    return this.userModel.updateOne(
-      {
-        _id,
-      },
-      { refreshToken },
-    );
+    return this.userModel.updateOne({ _id }, { $set: { refreshToken } });
   }
 
   getHashPassword = (password: string) => {
@@ -189,7 +183,7 @@ export class UsersService {
     const offset = (+page - 1) * +limit;
     const defaultLimit = +limit ? +limit : 10;
 
-    const totalItems = (await this.userModel.find(filter)).length;
+    const totalItems = await this.userModel.countDocuments(filter);
     const totalPages = Math.ceil(totalItems / defaultLimit);
 
     const result = await this.userModel
@@ -224,7 +218,7 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     await this.ensureNotDeleted(id);
-    return this.userModel.updateOne({ _id: id }, { updateUserDto });
+    return this.userModel.updateOne({ _id: id }, { $set: updateUserDto });
   }
 
   async remove(id: string) {

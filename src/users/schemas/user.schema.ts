@@ -21,10 +21,16 @@ export class User {
   name: string;
 
   @Prop()
+  cover: string;
+
+  @Prop()
   bio: string;
 
   @Prop()
   avatar: string;
+
+  @Prop()
+  avatar_frame: string;
 
   @Prop()
   age: number;
