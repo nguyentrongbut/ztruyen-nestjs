@@ -3,6 +3,8 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -24,12 +26,19 @@ import sharp from 'sharp';
 // ** Messages
 import { UPLOAD_MESSAGES } from '../configs/messages/upload.message';
 
+// ** Service
+import { ImagesService } from '../images/images.service';
+
 @Injectable()
 export class UploadTelegramService {
   private readonly token: string;
   private readonly chatId: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => ImagesService))
+    private readonly imageService: ImagesService,
+  ) {
     this.token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     this.chatId = this.configService.get<string>('TELEGRAM_CHAT_ID');
 
@@ -129,24 +138,15 @@ export class UploadTelegramService {
       }
 
       const result = res.data.result;
-      let fileId, fileSize, mimeType, type;
+      let fileId;
 
       if (result.document) {
         fileId = result.document.file_id;
-        fileSize = result.document.file_size;
-        mimeType = result.document.mime_type;
-        type = 'document';
       } else if (result.sticker) {
         fileId = result.sticker.file_id;
-        fileSize = result.sticker.file_size;
-        mimeType = 'image/webp';
-        type = 'sticker';
       } else if (result.photo) {
         const photos = result.photo;
         fileId = photos[photos.length - 1].file_id;
-        fileSize = photos[photos.length - 1].file_size;
-        mimeType = 'image/jpeg';
-        type = 'photo';
       } else {
         throw new BadRequestException(
           'Telegram did not return a file. Response: ' + JSON.stringify(result),
@@ -155,15 +155,7 @@ export class UploadTelegramService {
 
       const slug = slugify(caption, { lower: true, strict: true });
 
-      return {
-        fileId,
-        slug,
-        filename: convertedFilename,
-        originalFilename: filename,
-        fileSize,
-        mimeType,
-        type,
-      };
+      return await this.imageService.create(fileId, slug);
     } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
@@ -179,7 +171,7 @@ export class UploadTelegramService {
       throw new BadRequestException(UPLOAD_MESSAGES.CAPTION_REQUIRED);
     }
 
-    if (files.length === 0) {
+    if (!files || files.length === 0) {
       throw new BadRequestException('No files to upload');
     }
 
@@ -190,6 +182,7 @@ export class UploadTelegramService {
     }
 
     try {
+      // 1. Convert tất cả file sang webp nếu cần
       const convertedFiles = await Promise.all(
         files.map(async (file) => {
           const { buffer, filename } = await this.convertToWebP(
@@ -200,16 +193,15 @@ export class UploadTelegramService {
         }),
       );
 
-      const uploadResults = await Promise.allSettled(
-        convertedFiles.map(async (file, i) => {
-          const fileCaption = i === 0 ? caption : `${caption} (${i + 1})`;
+      // 2. Upload từng file lên Telegram và thu về fileId
+      const uploadResults = await Promise.all(
+        convertedFiles.map(async (file, index) => {
+          const fileCaption =
+            index === 0 ? caption : `${caption} (${index + 1})`;
 
           const form = new FormData();
           form.append('chat_id', this.chatId);
-          form.append('document', file.buffer, {
-            filename: file.filename,
-            contentType: 'image/webp',
-          });
+          form.append('document', file.buffer, { filename: file.filename });
           form.append('caption', fileCaption);
 
           const res = await axios.post(this.apiUrl('sendDocument'), form, {
@@ -224,59 +216,31 @@ export class UploadTelegramService {
           }
 
           const result = res.data.result;
-          let fileId, fileSize, mimeType, type;
+          let fileId;
 
-          if (result.document) {
-            fileId = result.document.file_id;
-            fileSize = result.document.file_size;
-            mimeType = result.document.mime_type;
-            type = 'document';
-          } else if (result.sticker) {
-            fileId = result.sticker.file_id;
-            fileSize = result.sticker.file_size;
-            mimeType = 'image/webp';
-            type = 'sticker';
-          } else if (result.photo) {
+          if (result.document) fileId = result.document.file_id;
+          else if (result.photo) {
             const photos = result.photo;
             fileId = photos[photos.length - 1].file_id;
-            fileSize = photos[photos.length - 1].file_size;
-            mimeType = 'image/jpeg';
-            type = 'photo';
+          } else {
+            throw new BadRequestException(
+              'Telegram did not return a fileId for ' + file.filename,
+            );
           }
 
-          return {
-            fileId,
-            slug: slugify(`${caption}-${i + 1}`, { lower: true, strict: true }),
-            filename: file.filename,
-            originalFilename: file.originalname,
-            fileSize,
-            mimeType,
-            type,
-          };
+          // Tạo slug riêng cho mỗi ảnh
+          const slug = slugify(`${caption}-${index + 1}`, {
+            lower: true,
+            strict: true,
+          });
+
+          return { fileId, slug };
         }),
       );
 
-      const fields = uploadResults
-        .filter((result) => result.status === 'fulfilled')
-        .map((result: any) => result.value);
-
-      const failedFiles = uploadResults
-        .map((result, i) => ({ result, index: i }))
-        .filter(({ result }) => result.status === 'rejected')
-        .map(({ index }) => convertedFiles[index].filename);
-
-      if (fields.length === 0) {
-        throw new BadRequestException('All files failed to upload');
-      }
-
-      return {
-        fields,
-        total: fields.length,
-        failed: failedFiles.length,
-        failedFiles,
-      };
+      // Lưu tất cả vào MongoDB cùng lúc
+      return await this.imageService.createMany(uploadResults);
     } catch (error: any) {
-      if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
         `Failed to upload multiple documents: ${
           error.message || UPLOAD_MESSAGES.UPLOAD_FAILED

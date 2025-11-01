@@ -7,7 +7,7 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Query, Req,
   UseGuards,
 } from '@nestjs/common';
 
@@ -53,8 +53,10 @@ export class UsersController {
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query() qs: string,
+    @Req() req,
   ) {
-    return this.usersService.findAll(+page, +limit, qs);
+    const currentUserId = req.user._id;
+    return this.usersService.findAll(+page, +limit, qs, currentUserId);
   }
 
   @Get('detail/:id')

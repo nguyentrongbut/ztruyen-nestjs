@@ -1,6 +1,8 @@
 // ** NestJs
 import {
   BadRequestException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,6 +27,7 @@ import { IMAGE_MESSAGES } from '../configs/messages/image.message';
 export class ImagesService {
   constructor(
     @InjectModel(Image.name) private imageModel: Model<ImageDocument>,
+    @Inject(forwardRef(() => UploadTelegramService))
     private readonly uploadTelegramService: UploadTelegramService,
   ) {}
 

@@ -175,10 +175,19 @@ export class UsersService {
     };
   }
 
-  async findAll(page: number, limit: number, qs: string) {
+  async findAll(
+    page: number,
+    limit: number,
+    qs: string,
+    currentUserId: string,
+  ) {
     const { filter, sort, population } = aqp(qs);
     delete filter.page;
     delete filter.limit;
+
+    filter.isDeleted = false;
+
+    filter._id = { $ne: currentUserId };
 
     const offset = (+page - 1) * +limit;
     const defaultLimit = +limit ? +limit : 10;
@@ -250,7 +259,7 @@ export class UsersService {
     const offset = (+page - 1) * +limit;
     const defaultLimit = +limit ? +limit : 10;
 
-    const totalItems = (await this.userModel.find(filter)).length;
+    const totalItems = await this.userModel.countDocuments(filter);
     const totalPages = Math.ceil(totalItems / defaultLimit);
 
     const result = await this.userModel

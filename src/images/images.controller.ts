@@ -1,11 +1,14 @@
 // ** NestJs
 import {
+  Body,
   Controller,
   ForbiddenException,
   Get,
   Param,
+  Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 
 // ** Express
@@ -20,7 +23,11 @@ import { Public, ResponseMessage } from '../decorator/customize';
 // ** Message
 import { IMAGE_MESSAGES } from '../configs/messages/image.message';
 
+// ** Guards
+import { RolesGuard } from '../guards/roles.guard';
+
 @Controller('images')
+@UseGuards(RolesGuard)
 export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
