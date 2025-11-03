@@ -37,9 +37,7 @@ export class ImagesService {
 
     const stream = await this.uploadTelegramService.getFileStream(image.fileId);
 
-    // cache
     res.setHeader('Content-Type', 'image/webp');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
     stream.pipe(res);
   }

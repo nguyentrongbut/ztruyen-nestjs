@@ -66,7 +66,7 @@ export class UploadTelegramService {
 
       const webpBuffer = await sharp(fileBuffer)
         .webp({
-          quality: 95,
+          quality: 80,
           lossless: false,
           effort: 6,
         })

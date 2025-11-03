@@ -3,7 +3,6 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
-  IsNumber,
   IsString,
 } from 'class-validator';
 import { Optional } from '@nestjs/common';
@@ -23,12 +22,7 @@ export class CreateUserDto {
   @IsString()
   password: string;
 
-  @IsNotEmpty()
-  @IsString()
-  avatar: string;
-
-  @IsNotEmpty()
-  @IsNumber()
+  @Optional()
   age: number;
 
   @IsEnum(RoleType, {
@@ -36,8 +30,7 @@ export class CreateUserDto {
   })
   role: RoleType;
 
-  @IsNotEmpty()
-  @IsString()
+  @Optional()
   gender: string;
 
   @Optional()

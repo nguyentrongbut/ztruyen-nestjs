@@ -2,6 +2,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -51,5 +52,17 @@ export class ImagesController {
     }
 
     return this.imagesService.findImage(slug, res);
+  }
+
+  @Delete('/:slug')
+  @ResponseMessage(IMAGE_MESSAGES.DELETE_SUCCESS)
+  async remove(@Param('slug') slug: string) {
+    return this.imagesService.remove(slug);
+  }
+
+  @Delete()
+  @ResponseMessage(IMAGE_MESSAGES.DELETE_MANY_SUCCESS)
+  async removeMany(@Body('slugs') slugs: string[]) {
+    return this.imagesService.removeMany(slugs);
   }
 }
