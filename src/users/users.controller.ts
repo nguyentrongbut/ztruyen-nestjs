@@ -9,8 +9,13 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+
+import { Response } from 'express';
 
 // ** Services
 import { UsersService } from './users.service';
@@ -34,6 +39,7 @@ import { USERS_MESSAGES } from '../configs/messages/user.message';
 
 // ** Enum
 import { RoleType } from '../configs/enums/user.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 @UseGuards(RolesGuard)
@@ -144,5 +150,56 @@ export class UsersController {
   @ResponseMessage(USERS_MESSAGES.RESTORE_MULTI_SUCCESS)
   restoreMulti(@Body('ids') ids: string[]) {
     return this.usersService.restoreMulti(ids);
+  }
+
+  @Get('export')
+  @Roles(RoleType.ADMIN)
+  async exportUsers(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query() qs: any,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    const currentUserId = req.user._id;
+
+    const buffer = await this.usersService.exportUsers(
+      +page,
+      +limit,
+      qs,
+      currentUserId,
+    );
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=users_page_${page}.xlsx`,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.end(buffer);
+  }
+
+  @Post('import')
+  @Roles(RoleType.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  async importUsers(@UploadedFile() file: Express.Multer.File) {
+    return await this.usersService.importUsers(file);
+  }
+
+  @Get('template')
+  @Roles(RoleType.ADMIN)
+  async getTemplate(@Res() res: Response) {
+    const buffer = await this.usersService.exportTemplate();
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=import_template.xlsx',
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.end(buffer);
   }
 }

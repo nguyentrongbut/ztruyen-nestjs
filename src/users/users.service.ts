@@ -13,6 +13,7 @@ import {
   RegisterUserDto,
 } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ImportUserDto } from './dto/import-user.dto';
 
 // ** Schemas
 import { User, UserDocument } from './schemas/user.schema';
@@ -37,6 +38,13 @@ import { USERS_MESSAGES } from '../configs/messages/user.message';
 
 // ** utils
 import { validateMongoId, validateMongoIds } from '../utils/mongoose.util';
+
+// ** exceljs
+import ExcelJS from 'exceljs';
+import { ProviderType, RoleType } from '../configs/enums/user.enum';
+
+// ** Dayjs
+import dayjs from 'dayjs';
 
 @Injectable()
 export class UsersService {
@@ -316,4 +324,182 @@ export class UsersService {
   }
 
   // End Trash
+
+  // export
+  async exportUsers(
+    page: number,
+    limit: number,
+    qs: string,
+    currentUserId: string,
+  ): Promise<Buffer> {
+    const { filter, sort, population } = aqp(qs);
+    delete filter.page;
+    delete filter.limit;
+
+    filter.isDeleted = false;
+
+    filter._id = { $ne: currentUserId };
+
+    const offset = (+page - 1) * +limit;
+    const defaultLimit = +limit ? +limit : 10;
+
+    const totalItems = await this.userModel.countDocuments(filter);
+    const totalPages = Math.ceil(totalItems / defaultLimit);
+
+    const users = await this.userModel
+      .find(filter)
+      .skip(offset)
+      .limit(+limit)
+      .sort(sort as any)
+      .select('-password -refreshToken')
+      .populate(population)
+      .lean();
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet(`Users Page ${page}`);
+
+    sheet.columns = [
+      { header: 'Name', key: 'name', width: 25 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Age', key: 'age', width: 10 },
+      { header: 'Birthday', key: 'birthday', width: 30 },
+      { header: 'Avatar', key: 'avatar', width: 30 },
+      { header: 'Avatar Frame', key: 'avatar_frame', width: 30 },
+      { header: 'Cover', key: 'cover', width: 30 },
+      { header: 'Gender', key: 'gender', width: 10 },
+      { header: 'Role', key: 'role', width: 15 },
+      { header: 'Bio', key: 'bio', width: 25 },
+      { header: 'Provider', key: 'provider', width: 25 },
+      { header: 'Created At', key: 'createdAt', width: 30 },
+      { header: 'Updated At', key: 'updatedAt', width: 30 },
+    ];
+
+    users.forEach((user) => {
+      sheet.addRow({
+        name: user.name,
+        email: user.email,
+        age: user.age,
+        birthday: user.birthday
+          ? dayjs(user.birthday).format('DD/MM/YYYY')
+          : '',
+        avatar: user.avatar || '',
+        avatar_frame: user.avatar_frame || '',
+        cover: user.cover || '',
+        gender: user.gender,
+        role: user.role,
+        bio: user.bio,
+        provider: user.provider,
+        createdAt: new Date(user.createdAt).toLocaleString(),
+        updatedAt: new Date(user.updatedAt).toLocaleString(),
+      });
+    });
+
+    sheet.addRow([]);
+    sheet.addRow([`Page ${page}/${totalPages}`]);
+    sheet.addRow([`Total: ${totalItems} users`]);
+
+    return (await workbook.xlsx.writeBuffer()) as unknown as Buffer;
+  }
+
+  // import
+  async importUsers(file: Express.Multer.File) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer);
+    const sheet = workbook.worksheets[0];
+    const imported: ImportUserDto[] = [];
+
+    const cleanValue = (val: any): any => {
+      if (typeof val === 'object' && val?.text) return val.text;
+      return val ?? null;
+    };
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      const values = row.values as any[];
+
+      try {
+        const [
+          name,
+          email,
+          age,
+          birthday,
+          avatar,
+          avatar_frame,
+          cover,
+          gender,
+          role,
+          bio,
+          provider,
+          password,
+        ] = values.slice(1).map(cleanValue);
+
+        if (!email) return;
+
+        imported.push({
+          name: name as string,
+          email: email as string,
+          age: Number(age) || 0,
+          birthday: birthday ? dayjs(birthday, 'DD/MM/YYYY').toDate() : null,
+          avatar: avatar as string,
+          avatar_frame: avatar_frame as string,
+          cover: cover as string,
+          gender: gender as string,
+          role: role as RoleType,
+          bio: bio as string,
+          provider: provider as ProviderType,
+          password: password as string,
+        });
+      } catch (err) {
+        console.error(`Lỗi ở dòng ${rowNumber}:`, err);
+      }
+    });
+
+    for (const u of imported) {
+      const exists = await this.userModel.findOne({ email: u.email });
+      if (exists) {
+        throw new BadRequestException(`Email ${u.email} đã tồn tại`);
+      }
+    }
+
+    await this.userModel.insertMany(imported);
+
+    return { message: `Nhập ${imported.length} người dùng thành công` };
+  }
+
+  // export template
+  async exportTemplate(): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Import Template');
+
+    sheet.columns = [
+      { header: 'Name', key: 'name', width: 25 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Age', key: 'age', width: 10 },
+      { header: 'Birthday', key: 'birthday', width: 15 },
+      { header: 'Avatar', key: 'avatar', width: 30 },
+      { header: 'Avatar Frame', key: 'avatar_frame', width: 30 },
+      { header: 'Cover', key: 'cover', width: 30 },
+      { header: 'Gender', key: 'gender', width: 10 },
+      { header: 'Role', key: 'role', width: 15 },
+      { header: 'Bio', key: 'bio', width: 25 },
+      { header: 'Provider', key: 'provider', width: 25 },
+    ];
+
+    sheet.addRow([
+      'John Doe',
+      'john@example.com',
+      25,
+      dayjs('2000-01-01').format('DD/MM/YYYY'),
+      'https://example.com/avatar.webp',
+      'https://example.com/avatarframe.webp',
+      'https://example.com/cover.webp',
+      'male',
+      'user',
+      'New member',
+      'local',
+    ]);
+
+    return (await workbook.xlsx.writeBuffer()) as unknown as Buffer;
+  }
 }

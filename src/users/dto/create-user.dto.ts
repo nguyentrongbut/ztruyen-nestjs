@@ -1,10 +1,5 @@
 // ** Class Validator
-import {
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsString,
-} from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsString } from 'class-validator';
 import { Optional } from '@nestjs/common';
 
 // ** Enums
